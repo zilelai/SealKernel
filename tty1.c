@@ -29,6 +29,7 @@
 #define MAX 10000
 #define MIN 256
 
+
 void charoutput(char c) {
     write(STDOUT_FILENO, &c, 1);
 }
@@ -41,6 +42,24 @@ void stroutput(const char *str, int *count) {
         str++;
     }
 }
+
+#include <stdio.h>
+
+#if defined(__linux__)
+void tagged() {
+    out("linux\n");
+}
+#elif defined(_WIN32) || defined(_WIN64)
+void tagged() {
+    out("windows\n");
+}
+#else
+void tagged() {
+    out("other OS\n");
+}
+#endif
+
+
 
 static void intoutput(int n, int *count) {
     char buf[32];
@@ -304,6 +323,7 @@ double r = 4.882823923923923823283;
 long t = 832832832732;
 int superior;
 char users[128] = "seal";
+int config;
 
 
 
@@ -481,19 +501,31 @@ void process_system_command(char *input) {
     }
     else if (strcmp(cmd, "rm") == 0) {
         if (parsed_args < 2) {
-            perror("errcode 3: file not provided\n");
-        } else {
-            char target_path[128];
-            get_current_path(loc, arg1, target_path);
+            out("errcode 3: file not provided\n");
+        } 
+        
+        else {
+            if (strcmp(arg1, "tty1.cpp") == 0 || 
+                strcmp(arg1, "tty2.cpp") == 0 || 
+                strcmp(arg1, "qubabasdwiaisd.txt") == 0) {
+                
+                out("errcode 24: access denied: doing such process is very dangerous\n");
+            } 
+            else {
+                char target_path[128];
+                get_current_path(loc, arg1, target_path);
+    
 
-            if (remove(target_path) == 0) {
-                if (strcmp(notes_name, arg1) == 0) {
-                    strcpy(notes_name, "notes.txt");
-                    notes_mode = 0;
+                if (remove(target_path) == 0) {
+                    if (strcmp(notes_name, arg1) == 0) {
+                        strcpy(notes_name, "notes.txt");
+                        notes_mode = 0;
+                    }
+                    out("changed\n");
+                } else {
+
+                    perror("errcode 3: remove failed");
                 }
-                out("changed\n");
-            } else {
-                perror("errcode 3: file not provided\n");
             }
         }
     }
@@ -543,22 +575,101 @@ void process_system_command(char *input) {
     }
     else if (strcmp(cmd, "exe") == 0) {
         if (parsed_args >= 2) {
-            strcpy(notes_name, arg1);
+            strncpy(notes_name, arg1, sizeof(notes_name) - 1);
+            notes_name[sizeof(notes_name) - 1] = '\0';
+        } else {
+            out("errcode 3: file not provided\n");
+            return; 
+        }
+
+        if (notes_mode == 0 && (strcmp(arg1, "code.txt") == 0 || strcmp(arg1, "code.c") == 0)) {
+            out("errcode 9 : permission denied \n");
+        } else {
+            char compile[512];
+            snprintf(compile, sizeof(compile), "gcc %s -o main && ./main", arg1);
+            system(compile);
+            out("\n");
+        }
+    }
+
+    else if (strcmp(cmd, "exe-python") == 0) {
+        if (parsed_args >= 2) {
+            strncpy(notes_name, arg1, sizeof(notes_name) - 1);
+            notes_name[sizeof(notes_name) - 1] = '\0';
+        } else {
+            out("errcode 3: file not provided\n");
+            return; 
+        }
+        if (notes_mode == 0 && (strcmp(arg1, "code") == 0 || strcmp(arg1, "code.py") == 0)) {
+            out("errcode 9 : permission denied \n");
+        } else {
+            char compile[512];
+            if (strstr(arg1, ".py") != NULL) {
+                snprintf(compile, sizeof(compile), "python3 %s", arg1);
+            } else {
+                snprintf(compile, sizeof(compile), "python3 %s.py", arg1);
+            }
+            system(compile);
+            out("\n");
+        }
+    }
+
+    else if (strcmp(cmd, "exe-java") == 0) {
+        if (parsed_args >= 2) {
+            strncpy(notes_name, arg1, sizeof(notes_name) - 1);
+            notes_name[sizeof(notes_name) - 1] = '\0';
         } else {
             out("errcode 3: file not provided\n");
             return; 
         }
         
-        if (notes_mode == 0 && strcmp(arg1, "code.txt") == 0) {
+        
+        if (notes_mode == 0 && (strcmp(arg1, "code") == 0 || strcmp(arg1, "code.java") == 0)) {
             out("errcode 9 : permission denied \n");
         } else {
             char compile[512];
-            snprintf(compile, sizeof(compile), "gcc %s -o main && ./main", arg1);
+           
+            char class_name[256];
+            strncpy(class_name, arg1, sizeof(class_name) - 1);
+            class_name[sizeof(class_name) - 1] = '\0';
+
+            char *ext = strstr(class_name, ".java");
+            if (ext) *ext = '\0'; 
+
+            snprintf(compile, sizeof(compile), "javac %s.java && java %s", class_name, class_name);
+            system(compile);
+            out("\n");
+        }
+    }
+
+    else if (strcmp(cmd, "exe-asm") == 0) {
+        if (parsed_args >= 2) {
+            strncpy(notes_name, arg1, sizeof(notes_name) - 1);
+            notes_name[sizeof(notes_name) - 1] = '\0';
+        } else {
+            out("errcode 3: file not provided\n");
+            return; 
+        }
+        
+        if (notes_mode == 0 && (strcmp(arg1, "code") == 0 || strcmp(arg1, "code.asm") == 0)) {
+            out("errcode 9 : permission denied \n");
+        } else {
+            char compile[512];
+            char basename[256];
+
+            strncpy(basename, arg1, sizeof(basename) - 1);
+            basename[sizeof(basename) - 1] = '\0';
+            char *ext = strstr(basename, ".asm");
+            if (ext) *ext = '\0';
+            snprintf(compile, sizeof(compile), 
+                     "nasm -f elf64 %s.asm -o %s.o && ld %s.o -o %s && ./%s", 
+                     basename, basename, basename, basename, basename);
             
             system(compile);
             out("\n");
         }
     }
+
 
     else if (strcmp(cmd, "rnm") == 0) { 
         if (parsed_args < 2) {
@@ -799,6 +910,33 @@ void process_system_command(char *input) {
             }
         }
     }
+
+    else if (strcmp(cmd, "pen") == 0) { 
+        if (parsed_args >= 2) {
+            strcpy(notes_name, arg1);
+        }
+        if (notes_mode == 0 && parsed_args >= 2 && strcmp(arg1, "notes.txt") == 0) {
+            out("errcode 9 : permission denied \n");
+        } else {
+            get_current_path(loc, notes_name, notes_path);
+            file = fopen(notes_path, "a+");
+            if (file) {
+                if (strstr(notes_name, ".seal") != NULL) {
+                    out("ZL SCRIPT EDITOR (%s)\n ", notes_name);
+                } else {
+                    out("ZL FILE EDITOR (%s)\nEnter text: ", notes_name);
+                }
+                fflush(stdout);
+                fgets(content, sizeof(content), stdin);
+                fprintf(file, "%s", content);
+                fclose(file);
+                out("Saved successfully.\n");
+            } else {
+                out("errcode 12 : could not create file\n");
+            }
+        }
+    }
+
     else if (strcmp(cmd, "pad") == 0) { 
         if (parsed_args >= 2) {
             strcpy(notes_name, arg1);
@@ -874,7 +1012,7 @@ void process_system_command(char *input) {
             printf("       ....:::::^^^~~^^^:^~ : ^:::^^.......       \n");
             printf("                   .......^:~^~~^^.               \n");
             printf("\n");
-            printf("SealKernel 1.8.2026\n");
+            printf("SealKernel 9.8.2026\n");
             printf("Code Env.: VM\n");
             printf("Code Env. 2: CodePad\n");
             printf("Code: C, C++\n");
@@ -911,7 +1049,7 @@ void process_system_command(char *input) {
         
             
         
-            printf("SealKernel 1.8.2026\n");
+            printf("SealKernel 9.8.2026\n");
             printf("Code Env.: VM\n");
             printf("Code Env. 2: CodePad\n");
             printf("Code: C, C++\n");
@@ -977,7 +1115,7 @@ void process_system_command(char *input) {
         else if (superior == 1) out("superior/%s\n", locations[loc]);
     }
     else if (strcmp(cmd, "version") == 0) {
-        out("SealKernel 1.8.2026\n");
+        out("SealKernel 9.8.2026\n");
     }
     else if (strcmp(cmd, "release") == 0){
         printf("SealKernel 10 - can check size of variable class and can check version and release.\n");printf("SealKernel 11 - added curl to grab data from one site and added fast OS specification.\n");printf("SealKernel 12 [BETA] - added tsastream command to check streaming marks for TSIS student\n");printf("SealKernel 13 - Added calculator function andd improved tsastream\n"); printf("SealKernel 14 [BETA] - added tic tac toe game\n");printf("SealKernel 15 - added check storage in main.cpp\n");printf("SealKernel 16 - added check storage in main.cpp inside quick and about and removed TIC TAC TOE for ROCK PAPER SCISSORS game\n");printf("SealKernel 17 - fixed rock paper scissors game and added guess the number game\n"); printf ("SealKernel 18 - changed file locations and changed space-main.cpp to space. Also fixed game1\n");printf("SealKernel 19 - added game3 and game4 and also restricted exit command only for sudo user\n");printf("SealKernel 20 - added dice feature\n");printf("SealKernel 21 - fixed tsastream and removed quick and about for monthly cleaning (July)\n");    printf("SealKernel 22 - Improved tsastream\n");printf("SealKernel 23 - added luck program, element program and game5. Also improved pad function\n");printf("SealKernel 24 - added speed reaction game\n");printf("SealKernel 25 - Added conquer country game and also added bool. Also addded more space function (check out in help)\n");printf("SealKernel 26 - changed entire ls family, changed file structure\n");printf("SealKernel 27 - changed entire code structure of calculator\n");printf("SealKernel 28 - added move function and changed execute function\n");printf("SealKernel 16.7.2026 - changed version name from 28 to 16.7.2026 to indicate when was the version released, added more file for different purposes and also added image function. Finally, we also added file space for them\n");printf("SealKernel 17.7.2026 - added words, phrase and essay function\n");printf("SealKernel 19.7.2026 - prevent overflowing values for tsastream\n");printf("SealKernel 19.7.2026 More - created users function\n");
@@ -985,7 +1123,7 @@ void process_system_command(char *input) {
         printf("SealKernel 21.7.2026 - added own package manager from bpm and also fixed Trigraphs error and other warnings\n");
         printf("SealKernel 22.7.2026 - added browser function to show HTML code in website\n");printf("SealKernel 23.7.2026 - added bootloader and function clear\n");printf("SealKernel 26.7.2026 - fixed space and about function and added error code for future purposes\n");
         printf("SealKernel 27.7.2026 - added 2026 next term expectation in beta so students can see their marks and see which class they are going to be in and break their hopes and dreams\n");printf("SealKernel 28.7.2026 - changed entire code structure for tsastream\n");printf("SealKernel 29.7.2026 - added game8 and game9 is in progress\n");
-        printf("SealKernel 30.7.2026 - added game10, game9 in progress and tsastream new update.\n");out("SealKernel 31.7.2026 - changed stdio lib to zlio lib.\n");out("SealKernel 1.8.2026 - added date to info and about and also improved tsastream\n");
+        printf("SealKernel 30.7.2026 - added game10, game9 in progress and tsastream new update.\n");out("SealKernel 31.7.2026 - changed stdio lib to zlio lib.\n");out("SealKernel 1.8.2026 - added date to info and about and also improved tsastream\n");out("SealKernel 5.8.2026 - improved help, bootloader changed, added another text editor, extend execute function to other language and added system function\n");out("SealKernel 9.8.2026 - added history and clear history function and also made remove function more secure\n");
     }
     else if (strcmp(cmd, "ls") == 0) {
         DIR *dir;
@@ -1010,82 +1148,110 @@ void process_system_command(char *input) {
             
     }
     else if (strcmp(cmd, "help") == 0) {
-        out("SEALOS SCRIPT LIST:\n");
-        out("goto (Folder) - goes to 1 folder\n");
-        out("ls - list folders and files out\n");
-        out("ls-d - list folders and files out detailed\n");
-        out("info - show OS specification\n");
-        out("about - show OS specification\n");
-        out("w - create/write a file\n");
-        out("r - read the contents of a file\n"); 
-        out("rnm - rename a file to something else\n");
-        out("chmod notes.txt 1 - change a file to public\n");
-        out("chmod notes.txt 0 - change a file to private\n");
-        out("mkdir (folder name) - create (folder)\n"); 
-        out("where - to show where you are\n");
-        out("back - go back to root\n");
-        out("eggs - secret\n");
-        out("lemon - secret\n");
-        out("echo (text) - repeat what you had key in\n");
-        out("date - show current date and time\n");
-        out("random - show random numbers\n");
-        out("rm - remove file\n");
-        out("save - download files from websites\n");
-        out("w [name].seal - create a executable script\n");
-        out("exe [name].seal - run .seal script\n");
-        out("sizeof(variable class) - check size of variable class\n");
-        out("release - check what has updated\n");
-        out("version - check only the version\n");
-        out("curl - search something online (might not work in online compiler)\n");
-        out("tsastream - check your avg score for TSIS students\n");
-        out("tsastream-free - check your avg score for TSIS students but with more freedom\n");
-        out("calc - simple calculator that you have to key in manually\n");
-        out("space - to check space in main.cpp\n");
-        out("space-downloads - to check space in downloads\n");
-        out("space-documents - to check space in documents\n");
-        out("space-home - to check space in home\n");
-        out("space-music - to check space in music\n");
-        out("space-pictures - to check space in pictures\n");
-        out("space-videos - to check space in videos\n");
-        out("space-examples - to check space in examples\n");
-        out("space-system - to check space in system\n");
-        out("space-others - to check space in other file/directory(folder)\n");
-        out("game1 - plays rock paper scissors game (r for rock, s for scissors and p for paper)\n");
-        out("game2 - guess the number game (type the number from 0 to 99 \n)");
-        out("sudo-on - change to sudo user\n");
-        out("sudo-off - change to normal user \n");
-        out("game3 - flag capture game\n");
+        out("SealKernel Functions:\n");
+        out("1. System functions:\n");
+        out(" \n");
+        out("chmod - change file to either public(1) or private (0)\n");
+        out("rm - remove a directory or a file\n");
+        out("mv - move a file to another location\n");
+        out("save - save a file\n");
+        out("exe - execute c/cpp file\n");
+        out("exe-python - execute py3 file\n");
+        out("exe-java - execute java file\n");
+        out("exe-asm - execute assembly file\n");
+        out("rnm - rename a file to another name\n");
+        out("mkdir - make a directory\n");
+        out("ls-t - list types of files\n");
+        out("ls-d - list files in advance\n");
+        out("ls-dt / ls-td - list types of files and look files in advance\n");
+        out("w - write a file\n");
+        out("pen - write a file but better than w\n");
+        out("pad - write a file but better than w and pen\n");
+        out("r - read a file\n");
+        out("info - view system infomation\n");
+        out("about - view system infomation but have more infomation\n");
+        out("goto - go to a file/directory\n");
+        out("sudo-on - turn on sudo mode\n");
+        out("sudo-off - turn off sudo mode\n");
+        out("back - go back to root / superior\n");
+        out("where - tells you your location\n");
+        out("version - tells you what version you are in\n");
+        out("ls - list down files\n");
+        out("echo - repeat what you key in\n");
+        out("date - WHAT IS THE DATE NOW???\n");
+        out("space - check space for tty1.cpp\n");
+        out("space-documents - check space for documents directory\n");
+        out("space-downloads - check space for downloads directory\n");
+        out("space-system - check space for system directory\n");
+        out("space-pictures - check space for pictures directory\n");
+        out("space-videos - check space for videos directory\n");
+        out("space-examples - check space for examples directory\n");
+        out("space-music - check space for music directory\n");
+        out("space-home - check space for home directory\n");
+        out("space-others - check space for other directory/files\n");
+        out("users - make a temporary user\n");
+        out("users-seal - delete and go into seal user\n");
+        out("whoami - print out who you are\n");
+        out("available - print out active users\n");
+        out("available-t - print out active users in detail\n");
+        out("version-zlio - shows the version of SealKernel's own IO library\n");
+        out("system - shows what OS you are running\n");
+        out("sudo-exit - shut down / exit this program\n");
+        out("history - check previous commands\n");
+        out("clear-history - delete previous commands\n");
+        
+        
+        
+
+        out(" \n");
+        out("2. Sizes\n");
+        out(" \n");
+        out("sizeofint - look at size of integer\n");
+        out("sizeofchar - look at size of character\n");
+        out("sizeoffloat - look at size of float\n");
+        out("sizeofdouble - look at size of double\n");
+        out("sizeoflong - look at size of long\n");
+
+        out(" \n");
+        out("3. Other apps\n");
+        out(" \n");
+        out("tsastream - look at your class and streaming marks for TSIS students\n");
+        out("tsastream-free - look at your class and streaming marks for TSIS students\n");
+        out("calc - calculator\n");
+        out("version-calc - calculator version\n");
+        out("random - gives out random numbers\n");
+        out("elements - gives you a random element\n");
+        out("bool - let the computer gives you 1 or 0\n");
+        out("image - turns an image to ASCII art\n");
+        out("phrase - gives you a random sentence\n");
+        out("words - gives you a random word\n");
+        out("essay - gives you a random essay\n");
+        out("comp - 'compress' a file\n");
+        out("decomp - 'decompress' a file\n");
+        out("pkgmgr add (URL) - download a single file\n");
+        out("pkgmgr clone (URL) - run or use a download file (some repo cannot)\n");
+        out("browser - show the code of a page\n");
+        out("luck - shows ur luck\n");
+
+        out(" \n");
+        out("4. ASCII Arts\n");
+        out(" \n");
+        out("lemon - lemon art\n");
+        out("eggs - eggs art\n");
+
+        out(" \n");
+        out("5. Games\n");
+        out(" \n");
+        out("game1 - rock paper scissors game\n");
+        out("game2 - guess the number game\n");
+        out("game3 - capture the flag game\n");
         out("game4 - gun game\n");
-        out("sudo-exit - shut down only with sudo permissions\n");
-        out("dice - roll a dice\n");
-        out("luck - program that determines (will or wont) your luck\n");
-        out("game5 - let the bot guess your number (from 0 to 99)\n");
-        out("elements - let the system choose an element\n");
-        out("game6 - Reaction Time Test\n");
-        out("game7 - conquer country games\n");
-        out("bool - system-controlled true-false answer\n");
-        out("ls-t - check file type\n");
-        out("ls-dt - check file type and in advance\n");
-        out("ls-td - check file type and in advance\n");
-        out("mv - move file\n");
-        out("image - display image\n");
-        out("essay - generate a random 5000 words essay\n");
-        out("words - generate a random word\n");
-        out("phrase - generate a random 20 words sentence\n");
-        out("available - check how many users are there now\n");
-        out("users - create and go into a user\n");
-        out("whoami - check who you are\n");
-        out("comp - compress a file\n");
-        out("decomp - decompress a file\n");
-        out("pkgmgr add (single file url) - only downloads a file from github or anywhere else\n");
-        out("pkgmgr clone (multi file url) - downloads multiple file from github or anywhere else\n");
-        out("pkgmgr build (downloaded file) - run or use a downloaded file (some repositories cannot)\n");
-        out("browser - a function that let you see HTML code inside a website\n");
-        out("clear - a function that clears your screen\n");
-        out("game8 - a lamp guessing game (use _ instead of space for spacing names)\n");
-        out("game9 - sniping rpg game\n");
-        out("game10 - avoid the chosen number game \n");
-        out("version-zlio - check the version of SealKernel's own library\n");
+        out("game5 - but guessing our number game\n");
+        out("game6 - reaction time test game\n");
+        out("game7 - country game\n");
+        out("game8 - lamp guessing game\n");
+        out("game9 - text sniping rpg game\n");
+        out("game10 - avoid the chosen number game\n");
     }
     else if (strcmp(cmd, "echo") == 0) {
         out("%s\n", input + (strlen(input) > 4 ? 5 : 0));
@@ -1201,23 +1367,29 @@ void process_system_command(char *input) {
             }
             out("2026 streaming mark: %s\n", class2026);
 
-            if (avg >= 75){
+            if (avg >= 80){
                 strcpy(classExpectation, "Acacia");
             }
-            else if (avg >= 65 && avg < 75){
+            else if (avg >= 70 && avg < 80){
                 strcpy(classExpectation, "Aster");
             }
-            else if (avg >= 55 && avg < 65){
+            else if (avg >= 60 && avg < 70){
                 strcpy(classExpectation, "Begonia");
             }
-            else if (avg >= 45 && avg < 55){
+            else if (avg >= 50 && avg < 60){
                 strcpy(classExpectation, "Castanea");
             }
-            else if (avg >= 35 && avg < 45){
+            else if (avg >= 40 && avg < 50){
                 strcpy(classExpectation, "Juniper");
             }
-            else if (avg < 35){
+            else if (avg >= 30 && avg < 40){
                 strcpy(classExpectation, "Magnolia");
+            }
+            else if (avg >= 20 && avg < 30){
+                strcpy(classExpectation, "MX Intensive 1");
+            }
+            else if (avg < 20){
+                strcpy(classExpectation, "MX Intensive 2");
             }
             out("2026 New Term Expectation: %s\n", classExpectation);
         }
@@ -1327,23 +1499,29 @@ void process_system_command(char *input) {
             }
             out("2026 streaming mark: %s\n", class2026);
 
-            if (avg >= 75){
+            if (avg >= 80){
                 strcpy(classExpectation, "Acacia");
             }
-            else if (avg >= 65 && avg < 75){
+            else if (avg >= 70 && avg < 80){
                 strcpy(classExpectation, "Aster");
             }
-            else if (avg >= 55 && avg < 65){
+            else if (avg >= 60 && avg < 70){
                 strcpy(classExpectation, "Begonia");
             }
-            else if (avg >= 45 && avg < 55){
+            else if (avg >= 50 && avg < 60){
                 strcpy(classExpectation, "Castanea");
             }
-            else if (avg >= 35 && avg < 45){
+            else if (avg >= 40 && avg < 50){
                 strcpy(classExpectation, "Juniper");
             }
-            else if (avg < 35){
+            else if (avg >= 30 && avg < 40){
                 strcpy(classExpectation, "Magnolia");
+            }
+            else if (avg >= 20 && avg < 30){
+                strcpy(classExpectation, "MX Intensive 1");
+            }
+            else if (avg < 20){
+                strcpy(classExpectation, "MX Intensive 2");
             }
             out("2026 New Term Expectation: %s\n", classExpectation);
         }
@@ -1492,23 +1670,29 @@ void process_system_command(char *input) {
             }
             out("2026 streaming mark: %s\n", class2026);
 
-            if (avg >= 85){
+            if (avg >= 80){
                 strcpy(classExpectation, "Acacia");
             }
-            else if (avg >= 75 && avg < 85){
+            else if (avg >= 70 && avg < 80){
                 strcpy(classExpectation, "Aster");
             }
-            else if (avg >= 65 && avg < 75){
+            else if (avg >= 60 && avg < 70){
                 strcpy(classExpectation, "Begonia");
             }
-            else if (avg >= 55 && avg < 65){
+            else if (avg >= 50 && avg < 60){
                 strcpy(classExpectation, "Castanea");
             }
-            else if (avg >= 45 && avg < 55){
+            else if (avg >= 40 && avg < 50){
                 strcpy(classExpectation, "Juniper");
             }
-            else if (avg < 45){
+            else if (avg >= 30 && avg < 40){
                 strcpy(classExpectation, "Magnolia");
+            }
+            else if (avg >= 20 && avg < 30){
+                strcpy(classExpectation, "MX Intensive 1");
+            }
+            else if (avg < 20){
+                strcpy(classExpectation, "MX Intensive 2");
             }
             out("2026 New Term Expectation: %s\n", classExpectation);
         }
@@ -1610,23 +1794,29 @@ void process_system_command(char *input) {
             }
             out("2026 streaming mark: %s\n", class2026);
 
-            if (avg >= 75){
+            if (avg >= 80){
                 strcpy(classExpectation, "Acacia");
             }
-            else if (avg >= 65 && avg < 75){
+            else if (avg >= 70 && avg < 80){
                 strcpy(classExpectation, "Aster");
             }
-            else if (avg >= 55 && avg < 65){
+            else if (avg >= 60 && avg < 70){
                 strcpy(classExpectation, "Begonia");
             }
-            else if (avg >= 45 && avg < 55){
+            else if (avg >= 50 && avg < 60){
                 strcpy(classExpectation, "Castanea");
             }
-            else if (avg >= 35 && avg < 45){
+            else if (avg >= 40 && avg < 50){
                 strcpy(classExpectation, "Juniper");
             }
-            else if (avg < 35){
+            else if (avg >= 30 && avg < 40){
                 strcpy(classExpectation, "Magnolia");
+            }
+            else if (avg >= 20 && avg < 30){
+                strcpy(classExpectation, "MX Intensive 1");
+            }
+            else if (avg < 20){
+                strcpy(classExpectation, "MX Intensive 2");
             }
             out("2026 New Term Expectation: %s\n", classExpectation);
         }
@@ -1751,7 +1941,7 @@ void process_system_command(char *input) {
     }
 
     else if (strcmp(cmd, "version-calc") == 0){
-        out("Calc Function by ZileLai - Version 2.1.0");
+        out("Calc Function by ZileLai - Version 2.1.0\n");
     }
     
 
@@ -3344,6 +3534,36 @@ void process_system_command(char *input) {
         out("ZLIO Library - Version 2.0.0\n");
     }
 
+    else if (strcmp(cmd, "system") == 0){
+        tagged();
+    }
+
+    else if (strcmp(cmd, "history") == 0){
+        FILE *fptr;
+        fptr = fopen("qubabasdwiaisd.txt", "r");
+
+        char history [100];
+
+        if (fptr != NULL){
+            while(fgets(history, 100, fptr)){
+                out("%s", history);
+            }
+        }
+
+        fclose(fptr);
+
+        out("\n");
+    }
+
+    else if (strcmp(cmd, "clear-history") == 0){
+        FILE *fptr;
+        fptr = fopen("qubabasdwiaisd.txt", "w");
+
+        fprintf(fptr, "");
+        fclose(fptr);
+    }
+    
+    
 
     
     else if (strcmp(cmd, "sudo-exit") == 0) {
@@ -3356,6 +3576,11 @@ void process_system_command(char *input) {
         out("errcode 1 : command not found\n");
     }
 
+    FILE *fptr;
+    fptr = fopen("qubabasdwiaisd.txt", "a+");
+    fprintf(fptr, "%s\n", cmd);
+    fclose(fptr);
+
 
 }
 
@@ -3364,8 +3589,6 @@ int main() {
     srand(time(NULL));
     char input[100];
     FILE *file;
-    
-    
 
     remove("system/sys.txt");
     remove("documents/notes.txt");
@@ -3381,9 +3604,9 @@ int main() {
         fprintf(file, "https://codepad.app/pad/822052z5n");
         fclose(file);
     }
-    out("SealKernel 1.8.2026\n");
+    out("SealKernel 9.8.2026\n");
     out("A project by ZileLai\n");
-    out("SealKernel Website : https://zilelai.lab26.my/\n");
+    out("ZL Projects' Website : https://zilelai.lab26.my/\n");
     out("if don't know any command, use 'help'\n");
 
     while (1) {
