@@ -996,6 +996,63 @@ void process_system_command(char *input) {
             }
         }
     }
+
+    else if (strcmp(cmd, "head") == 0) {
+        if (parsed_args < 2) {
+            out("errcode 3: file not provided\n");
+        } else {
+            if (strcmp(arg1, notes_name) == 0 && notes_mode == 0) {
+                out("errcode 9 : permission denied\n");
+            } else {
+                int linesread = 10;
+                out ("Input how many lines you want to see this file: ");
+                in("", &linesread);
+                
+                char read_path[128], linebuffer[256];
+                get_current_path(loc, arg1, read_path);
+                FILE *rf = fopen(read_path, "r");
+                if (rf) {
+                    int linecount = 0;
+                    while (linecount < linesread && fgets(linebuffer, sizeof(linebuffer), rf) != NULL) {
+                        out(linebuffer);
+                        linecount++;
+                    }
+                    fclose(rf);
+                } else {
+                    out("errcode 3: file not provided\n");
+                }
+            }
+        }
+    }
+
+    else if (strcmp(cmd, "tail") == 0) {
+        if (parsed_args < 2) {
+            out("errcode 3: file not provided\n");
+        } else {
+            if (strcmp(arg1, notes_name) == 0 && notes_mode == 0) {
+                out("errcode 9 : permission denied\n");
+            } else {
+                int linesread = 10;
+                out ("Input how many lines you want to see this file: ");
+                in("", &linesread);
+                
+                char read_path[128], linebuffer[256];
+                get_current_path(loc, arg1, read_path);
+                FILE *rf = fopen(read_path, "r");
+                if (rf) {
+                    int linecount = 0;
+                    while (linecount < linesread && fgets(linebuffer, sizeof(linebuffer), rf) != NULL) {
+                        out(linebuffer);
+                        linecount--;
+                    }
+                    fclose(rf);
+                } else {
+                    out("errcode 3: file not provided\n");
+                }
+            }
+        }
+    }
+
     else if (strcmp(cmd, "info") == 0) {
 
         printf("                 ..^~:::::::::::....              \n");
@@ -1012,7 +1069,7 @@ void process_system_command(char *input) {
             printf("       ....:::::^^^~~^^^:^~ : ^:::^^.......       \n");
             printf("                   .......^:~^~~^^.               \n");
             printf("\n");
-            printf("SealKernel 9.8.2026\n");
+            printf("SealKernel 11.8.2026\n");
             printf("Code Env.: VM\n");
             printf("Code Env. 2: CodePad\n");
             printf("Code: C, C++\n");
@@ -1024,6 +1081,7 @@ void process_system_command(char *input) {
             out("\n");
             time(&currentTime); 
             out("%s", ctime(&currentTime));
+            tagged();
         
         }
         
@@ -1049,7 +1107,7 @@ void process_system_command(char *input) {
         
             
         
-            printf("SealKernel 9.8.2026\n");
+            printf("SealKernel 11.8.2026\n");
             printf("Code Env.: VM\n");
             printf("Code Env. 2: CodePad\n");
             printf("Code: C, C++\n");
@@ -1064,6 +1122,7 @@ void process_system_command(char *input) {
             out("\n");
             time(&currentTime); 
             out("%s", ctime(&currentTime));
+            tagged();
         }
         
         
@@ -1115,7 +1174,7 @@ void process_system_command(char *input) {
         else if (superior == 1) out("superior/%s\n", locations[loc]);
     }
     else if (strcmp(cmd, "version") == 0) {
-        out("SealKernel 9.8.2026\n");
+        out("SealKernel 11.8.2026\n");
     }
     else if (strcmp(cmd, "release") == 0){
         printf("SealKernel 10 - can check size of variable class and can check version and release.\n");printf("SealKernel 11 - added curl to grab data from one site and added fast OS specification.\n");printf("SealKernel 12 [BETA] - added tsastream command to check streaming marks for TSIS student\n");printf("SealKernel 13 - Added calculator function andd improved tsastream\n"); printf("SealKernel 14 [BETA] - added tic tac toe game\n");printf("SealKernel 15 - added check storage in main.cpp\n");printf("SealKernel 16 - added check storage in main.cpp inside quick and about and removed TIC TAC TOE for ROCK PAPER SCISSORS game\n");printf("SealKernel 17 - fixed rock paper scissors game and added guess the number game\n"); printf ("SealKernel 18 - changed file locations and changed space-main.cpp to space. Also fixed game1\n");printf("SealKernel 19 - added game3 and game4 and also restricted exit command only for sudo user\n");printf("SealKernel 20 - added dice feature\n");printf("SealKernel 21 - fixed tsastream and removed quick and about for monthly cleaning (July)\n");    printf("SealKernel 22 - Improved tsastream\n");printf("SealKernel 23 - added luck program, element program and game5. Also improved pad function\n");printf("SealKernel 24 - added speed reaction game\n");printf("SealKernel 25 - Added conquer country game and also added bool. Also addded more space function (check out in help)\n");printf("SealKernel 26 - changed entire ls family, changed file structure\n");printf("SealKernel 27 - changed entire code structure of calculator\n");printf("SealKernel 28 - added move function and changed execute function\n");printf("SealKernel 16.7.2026 - changed version name from 28 to 16.7.2026 to indicate when was the version released, added more file for different purposes and also added image function. Finally, we also added file space for them\n");printf("SealKernel 17.7.2026 - added words, phrase and essay function\n");printf("SealKernel 19.7.2026 - prevent overflowing values for tsastream\n");printf("SealKernel 19.7.2026 More - created users function\n");
@@ -1123,7 +1182,7 @@ void process_system_command(char *input) {
         printf("SealKernel 21.7.2026 - added own package manager from bpm and also fixed Trigraphs error and other warnings\n");
         printf("SealKernel 22.7.2026 - added browser function to show HTML code in website\n");printf("SealKernel 23.7.2026 - added bootloader and function clear\n");printf("SealKernel 26.7.2026 - fixed space and about function and added error code for future purposes\n");
         printf("SealKernel 27.7.2026 - added 2026 next term expectation in beta so students can see their marks and see which class they are going to be in and break their hopes and dreams\n");printf("SealKernel 28.7.2026 - changed entire code structure for tsastream\n");printf("SealKernel 29.7.2026 - added game8 and game9 is in progress\n");
-        printf("SealKernel 30.7.2026 - added game10, game9 in progress and tsastream new update.\n");out("SealKernel 31.7.2026 - changed stdio lib to zlio lib.\n");out("SealKernel 1.8.2026 - added date to info and about and also improved tsastream\n");out("SealKernel 5.8.2026 - improved help, bootloader changed, added another text editor, extend execute function to other language and added system function\n");out("SealKernel 9.8.2026 - added history and clear history function and also made remove function more secure\n");
+        printf("SealKernel 30.7.2026 - added game10, game9 in progress and tsastream new update.\n");out("SealKernel 31.7.2026 - changed stdio lib to zlio lib.\n");out("SealKernel 1.8.2026 - added date to info and about and also improved tsastream\n");out("SealKernel 5.8.2026 - improved help, bootloader changed, added another text editor, extend execute function to other language and added system function\n");out("SealKernel 9.8.2026 - added history and clear history function and also made remove function more secure\n");out("SealKernel 11.8.2026 - added talktoseal feature and added head and tail feature\n");
     }
     else if (strcmp(cmd, "ls") == 0) {
         DIR *dir;
@@ -1199,6 +1258,8 @@ void process_system_command(char *input) {
         out("sudo-exit - shut down / exit this program\n");
         out("history - check previous commands\n");
         out("clear-history - delete previous commands\n");
+        out("head - show the first (n) lines of a file\n");
+        out("tail - show the last (n) lines of a file\n");
         
         
         
@@ -1226,6 +1287,8 @@ void process_system_command(char *input) {
         out("phrase - gives you a random sentence\n");
         out("words - gives you a random word\n");
         out("essay - gives you a random essay\n");
+        out("talktoseal - talk to the seal\n");
+        out("talktoseal - talk to the seal but the output are in human language\n");
         out("comp - 'compress' a file\n");
         out("decomp - 'decompress' a file\n");
         out("pkgmgr add (URL) - download a single file\n");
@@ -2952,6 +3015,148 @@ void process_system_command(char *input) {
         free(lines);
     }
 
+    else if (strcmp(cmd, "talktoseal-human") == 0) {
+
+        char input [128];
+
+        out("What do you want to express to Seal ? ");
+
+        in ("", input);
+
+        out("Seal's Expression: ");
+
+
+        FILE *fptr = fopen("./text.text", "r");
+        if (!fptr) {
+            return ;
+        }
+
+        char **lines = (char **)malloc(MAX * sizeof(char *));
+        int count = 0;
+        char buffer[MAX];
+
+        while(fgets(buffer, sizeof(buffer), fptr) && count < MAX){
+            buffer[strcspn(buffer, "\n")] = '\0';
+            lines[count] = strdup(buffer);
+            count++;
+        }
+        fclose(fptr);
+        
+
+        if (count == 0){
+            free(lines);
+            return;
+        }
+
+        unsigned int seed;
+        FILE *urandom = fopen("/dev/urandom", "r");
+
+        if (urandom){
+            if (fread(&seed, sizeof(seed), 1, urandom) != 1){
+                seed = time(NULL);
+            }
+            fclose(urandom);
+        }
+        else{
+            seed = time(NULL);
+        }
+        srand(seed);
+
+        int target = (count < 32) ? count : 32;
+
+        for (int i = 0; i < target; i++){
+            int j = i + rand() % (count - i);
+            char *temp = lines[i];
+            lines[i] = lines[j];
+            lines[j] = temp;
+        }
+
+        for (int i = 0; i < target; i++){
+            out("%s", lines[i]);
+            if(i < target - 1){
+                out(" ");
+            }
+        }
+        out("\n");
+
+        for (int i = 0; i < count; i++){
+            free(lines[i]);
+        }
+
+        free(lines);
+    }
+
+    else if (strcmp(cmd, "talktoseal") == 0) {
+
+        char input [128];
+
+        out("What do you want to express to Seal ?");
+
+        in ("", input);
+
+        out("Seal's Expression: ");
+
+
+        FILE *fptr = fopen("./seal.text", "r");
+        if (!fptr) {
+            return ;
+        }
+
+        char **lines = (char **)malloc(MAX * sizeof(char *));
+        int count = 0;
+        char buffer[MAX];
+
+        while(fgets(buffer, sizeof(buffer), fptr) && count < MAX){
+            buffer[strcspn(buffer, "\n")] = '\0';
+            lines[count] = strdup(buffer);
+            count++;
+        }
+        fclose(fptr);
+        
+
+        if (count == 0){
+            free(lines);
+            return;
+        }
+
+        unsigned int seed;
+        FILE *urandom = fopen("/dev/urandom", "r");
+
+        if (urandom){
+            if (fread(&seed, sizeof(seed), 1, urandom) != 1){
+                seed = time(NULL);
+            }
+            fclose(urandom);
+        }
+        else{
+            seed = time(NULL);
+        }
+        srand(seed);
+
+        int target = (count < 32) ? count : 32;
+
+        for (int i = 0; i < target; i++){
+            int j = i + rand() % (count - i);
+            char *temp = lines[i];
+            lines[i] = lines[j];
+            lines[j] = temp;
+        }
+
+        for (int i = 0; i < target; i++){
+            out("%s", lines[i]);
+            if(i < target - 1){
+                out(" ");
+            }
+        }
+        out("\n");
+
+        for (int i = 0; i < count; i++){
+            free(lines[i]);
+        }
+
+        free(lines);
+    }
+
     else if (strcmp(cmd, "essay") == 0) {
         FILE *fptr = fopen("./text.text", "r");
         if (!fptr) {
@@ -3562,6 +3767,41 @@ void process_system_command(char *input) {
         fprintf(fptr, "");
         fclose(fptr);
     }
+
+    else if (strcmp(cmd, "wc") == 0) {
+        if (parsed_args < 2) {
+            out("errcode 3: file not provided\n");
+        } else {
+            if (strcmp(arg1, notes_name) == 0 && notes_mode == 0) {
+                out("errcode 9: permission denied\n");
+            } else {
+                char read_path[128];
+                get_current_path(loc, arg1, read_path);
+                FILE *rf = fopen(read_path, "r");
+                if (rf) {
+                    int count = 0;
+                    int inword = 0;
+                    int ch;
+    
+                    while ((ch = fgetc(rf)) != EOF) {
+                        if (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r') {
+                            inword = 0;
+                        } else if (!inword) {
+                            inword = 1;
+                            count++;
+                        }
+                    }
+                    fclose(rf);
+    
+                    char outbuffer[64];
+                    snprintf(outbuffer, sizeof(outbuffer), "%d\n", count);
+                    out(outbuffer);
+                } else {
+                    out("errcode 3: file not provided\n");
+                }
+            }
+        }
+    }
     
     
 
@@ -3576,11 +3816,13 @@ void process_system_command(char *input) {
         out("errcode 1 : command not found\n");
     }
 
-    FILE *fptr;
-    fptr = fopen("qubabasdwiaisd.txt", "a+");
-    fprintf(fptr, "%s\n", cmd);
-    fclose(fptr);
-
+    FILE *fptr = fopen("qubabasdwiaisd.txt", "a+");
+    if (fptr != nullptr) {
+        fprintf(fptr, "%s %s\n", cmd, arg1);
+        fclose(fptr);
+    } 
+    else {
+    }
 
 }
 
@@ -3604,7 +3846,7 @@ int main() {
         fprintf(file, "https://codepad.app/pad/822052z5n");
         fclose(file);
     }
-    out("SealKernel 9.8.2026\n");
+    out("SealKernel 11.8.2026\n");
     out("A project by ZileLai\n");
     out("ZL Projects' Website : https://zilelai.lab26.my/\n");
     out("if don't know any command, use 'help'\n");
@@ -3627,19 +3869,19 @@ int main() {
             out("seal &$ ");
         }
         else if (loc == 1 && superior == 1 && strcmp(users, "seal") == 0){
-            out("superior/home &$ ");
+            out("superior/home &# ");
         }
         else if (loc == 2 && superior == 1 && strcmp(users, "seal") == 0){
-            out("superior/documents &$ ");
+            out("superior/documents &# ");
         }
         else if (loc == 3 && superior == 1 && strcmp(users, "seal") == 0){
-            out("superior/downloads &$ ");
+            out("superior/downloads &# ");
         }
         else if (loc == 4 && superior == 1 && strcmp(users, "seal") == 0){
-            out("superior/system &$ ");
+            out("superior/system &# ");
         }
         else if (loc == 0 && superior == 1 && strcmp(users, "seal") == 0){
-            out("superior/seal &$ ");
+            out("superior/seal &# ");
         }
         //NOT 'SEAL'
         else if (loc == 1 && superior == 0 && strcmp(users, "seal") != 1){
@@ -3658,19 +3900,19 @@ int main() {
             out("%s &$ ", users);
         }
         else if (loc == 1 && superior == 1 && strcmp(users, "seal") != 1){
-            out("superior/home &$ ");
+            out("superior/home &# ");
         }
         else if (loc == 2 && superior == 1 && strcmp(users, "seal") != 1){
-            out("superior/documents &$ ");
+            out("superior/documents &# ");
         }
         else if (loc == 3 && superior == 1 && strcmp(users, "seal") != 1){
-            out("superior/downloads &$ ");
+            out("superior/downloads &# ");
         }
         else if (loc == 4 && superior == 1 && strcmp(users, "seal") != 1){
-            out("superior/system &$ ");
+            out("superior/system &# ");
         }
         else if (loc == 0 && superior == 1 && strcmp(users, "seal") != 1){
-            out("superior/seal &$ ");
+            out("superior/seal &# ");
         }
         fflush(stdout);
 
