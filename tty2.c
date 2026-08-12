@@ -13,6 +13,7 @@
 #include "compress.h"
 #include "decompress.h"
 #include <ctype.h>
+#include "zlio.h"
 
 #ifdef _WIN32
     #include <direct.h>
@@ -27,6 +28,246 @@
 
 #define MAX 10000
 #define MIN 256
+
+
+void charoutput(char c) {
+    write(STDOUT_FILENO, &c, 1);
+}
+
+void stroutput(const char *str, int *count) {
+    if (!str) str = "(null)";
+    while (*str) {
+        charoutput(*str);
+        if (count) (*count)++;
+        str++;
+    }
+}
+
+#include <stdio.h>
+
+#if defined(__linux__)
+void tagged() {
+    out("linux\n");
+}
+#elif defined(_WIN32) || defined(_WIN64)
+void tagged() {
+    out("windows\n");
+}
+#else
+void tagged() {
+    out("other OS\n");
+}
+#endif
+
+
+
+static void intoutput(int n, int *count) {
+    char buf[32];
+    int i = 0;
+
+    if (n == 0) {
+        charoutput('0');
+        if (count) (*count)++;
+        return;
+    }
+
+    long long num = n;
+    if (num < 0) {
+        charoutput('-');
+        if (count) (*count)++;
+        num = -num;
+    }
+
+    while (num > 0) {
+        buf[i++] = (num % 10) + '0';
+        num /= 10;
+    }
+
+    while (i > 0) {
+        charoutput(buf[--i]);
+        if (count) (*count)++;
+    }
+}
+
+static void doubleoutput(double val, int *count) {
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%f", val);
+    stroutput(buf, count);
+}
+
+int out(const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    int count = 0;
+
+    while (*format) {
+        if (*format == '%') {
+            format++;
+
+            if (*format == 'c') {
+                char c = (char)va_arg(args, int);
+                charoutput(c);
+                count++;
+            }
+            else if (*format == 's') {
+                char *s = va_arg(args, char *);
+                stroutput(s, &count);
+            }
+            else if (*format == 'd' || *format == 'i') {
+                int val = va_arg(args, int);
+                intoutput(val, &count);
+            }
+            else if (*format == 'f') {
+                double val = va_arg(args, double);
+                doubleoutput(val, &count);
+            }
+            else if (*format == '%') {
+                charoutput('%');
+                count++;
+            }
+        } else {
+            charoutput(*format);
+            count++;
+        }
+        format++;
+    }
+
+    va_end(args);
+    return count;
+}
+
+static void strw(const char *str) {
+    if (str) {
+        write(STDOUT_FILENO, str, strlen(str));
+    }
+}
+
+static size_t rlen(char *buf, size_t max_len) {
+    size_t i = 0;
+    char c;
+    while (i < max_len - 1) {
+        ssize_t bytes = read(STDIN_FILENO, &c, 1);
+        if (bytes <= 0 || c == '\n') break; 
+        buf[i++] = c;
+    }
+    buf[i] = '\0';
+
+    
+    while (i > 0 && (buf[i - 1] == '\r' || isspace((unsigned char)buf[i - 1]))) {
+        buf[--i] = '\0';
+    }
+    return i;
+}
+
+InputValue inraw(const char *prompt) {
+    InputValue result;
+    char buffer[256];
+
+    strw(prompt);
+    rlen(buffer, sizeof(buffer));
+
+    if (buffer[0] == '\0') {
+        result.type = INPUTSTR;
+        result.data.stringvalue[0] = '\0';
+        return result;
+    }
+
+    char *endptr;
+
+
+    if (strchr(buffer, '.') != NULL) {
+        double vald = strtod(buffer, &endptr);
+        if (*endptr == '\0') {
+            result.type = INPUTDOUBLE;
+            result.data.doublevalue = vald;
+            return result;
+        }
+    }
+
+    long vall = strtol(buffer, &endptr, 10);
+    if (*endptr == '\0') {
+        result.type = INPUTINT;
+        result.data.intvalue = (int)vall;
+        return result;
+    }
+
+    double vald = strtod(buffer, &endptr);
+    if (*endptr == '\0') {
+        result.type = INPUTDOUBLE;
+        result.data.doublevalue = vald;
+        return result;
+    }
+
+    if (strcasecmp(buffer, "true") == 0 || strcmp(buffer, "1") == 0 || strcasecmp(buffer, "yes") == 0) {
+        result.type = INPUTBOOL;
+        result.data.boolvalue = true;
+        return result;
+    }
+    if (strcasecmp(buffer, "false") == 0 || strcmp(buffer, "0") == 0 || strcasecmp(buffer, "no") == 0) {
+        result.type = INPUTBOOL;
+        result.data.boolvalue = false;
+        return result;
+    }
+
+    result.type = INPUTSTR;
+    strncpy(result.data.stringvalue, buffer, sizeof(result.data.stringvalue) - 1);
+    result.data.stringvalue[sizeof(result.data.stringvalue) - 1] = '\0';
+
+    return result;
+}
+
+void inint(const char *prompt, int *outval) {
+    InputValue res = inraw(prompt);
+    if (res.type == INPUTINT) *outval = res.data.intvalue;
+    else if (res.type == INPUTDOUBLE) *outval = (int)res.data.doublevalue;
+    else if (res.type == INPUTSTR) *outval = atoi(res.data.stringvalue);
+    else *outval = 0;
+}
+
+void indouble(const char *prompt, double *outval) {
+    InputValue res = inraw(prompt);
+    if (res.type == INPUTDOUBLE) *outval = res.data.doublevalue;
+    else if (res.type == INPUTINT) *outval = (double)res.data.intvalue;
+    else if (res.type == INPUTSTR) *outval = atof(res.data.stringvalue);
+    else *outval = 0.0;
+}
+
+void inbool(const char *prompt, bool *outval) {
+    InputValue res = inraw(prompt);
+    if (res.type == INPUTBOOL) *outval = res.data.boolvalue;
+    else if (res.type == INPUTINT) *outval = res.data.intvalue != 0;
+    else *outval = false;
+}
+
+void instr(const char *prompt, char *outval) {
+    InputValue res = inraw(prompt);
+    if (res.type == INPUTINT) {
+        snprintf(outval, 256, "%d", res.data.intvalue);
+    } else if (res.type == INPUTDOUBLE) {
+        snprintf(outval, 256, "%f", res.data.doublevalue);
+    } else if (res.type == INPUTBOOL) {
+        strncpy(outval, res.data.boolvalue ? "true" : "false", 255);
+        outval[255] = '\0';
+    } else {
+        strncpy(outval, res.data.stringvalue, 255);
+        outval[255] = '\0';
+    }
+}
+
+void filesize(const char *label, const char *filename) {
+    FILE *fp = fopen(filename, "rb");
+
+    if (fp == NULL) {
+        perror("errcode 3: file not provided\n");
+        return; 
+    }
+
+    fseek(fp, 0, SEEK_END);
+    long size = ftell(fp);
+    out("%s: %ld bytes\n", label, size);
+
+    fclose(fp);
+}
 
 int pkgdownload(const char *url) {
     const char *filename = strrchr(url, '/');
@@ -45,10 +286,10 @@ int pkgdownload(const char *url) {
     int result = system(command);
 
     if (result == 0) {
-        printf("installed %s\n", filename);
+        out("installed %s\n", filename);
         return 0;
     } else {
-        printf("failed to install existing package");
+        out("errcode 4 : failed to install existing package\n");
         return 1;
     }
 }
@@ -82,6 +323,7 @@ double r = 4.882823923923923823283;
 long t = 832832832732;
 int superior;
 char users[128] = "seal";
+int config;
 
 
 
@@ -137,14 +379,14 @@ int compressor(const char *inputfile, const char *outputfile)
     FILE *in = fopen(inputfile, "rb");
     if (!in)
     {
-        perror("err: file input error");
+        perror("errcode 5: file input failed\n");
         return 1;
     }
 
     FILE *out = fopen(outputfile, "wb");
     if (!out)
     {
-        perror("err: file error");
+        perror("errcode 6: file output failed\n");
         fclose(in);
         return 1;
     }
@@ -186,14 +428,14 @@ int decompress(const char *input_file, const char *output_file)
     FILE *in = fopen(input_file, "rb");
     if (!in)
     {
-        perror("err: file input error");
+        perror("errcode 5: file input failed\n");
         return 1;
     }
 
     FILE *out = fopen(output_file, "wb");
     if (!out)
     {
-        perror("err: file error");
+        perror("errcode 6: file output failed\n");
         fclose(in);
         return 1;
     }
@@ -249,29 +491,41 @@ void process_system_command(char *input) {
 
     if (strcmp(cmd, "chmod") == 0) {
         if (parsed_args < 3) {
-            printf("err: 0, 1 only found\n");
+            out("errcode 7 : only 0 and 1 are allowed\n");
         } else if (strcmp(arg1, notes_name) != 0) {
-            printf("err: file missing\n");
+            perror("errcode 3: file not provided\n");
         } else {
             notes_mode = atoi(arg2);
-            printf("changed\n");
+            out("changed\n");
         }
     }
     else if (strcmp(cmd, "rm") == 0) {
         if (parsed_args < 2) {
-            printf("err: missing filename\n");
-        } else {
-            char target_path[128];
-            get_current_path(loc, arg1, target_path);
+            out("errcode 3: file not provided\n");
+        } 
+        
+        else {
+            if (strcmp(arg1, "tty1.cpp") == 0 || 
+                strcmp(arg1, "tty2.cpp") == 0 || 
+                strcmp(arg1, "qubabasdwiaisd.txt") == 0) {
+                
+                out("errcode 24: access denied: doing such process is very dangerous\n");
+            } 
+            else {
+                char target_path[128];
+                get_current_path(loc, arg1, target_path);
+    
 
-            if (remove(target_path) == 0) {
-                if (strcmp(notes_name, arg1) == 0) {
-                    strcpy(notes_name, "notes.txt");
-                    notes_mode = 0;
+                if (remove(target_path) == 0) {
+                    if (strcmp(notes_name, arg1) == 0) {
+                        strcpy(notes_name, "notes.txt");
+                        notes_mode = 0;
+                    }
+                    out("changed\n");
+                } else {
+
+                    perror("errcode 3: remove failed");
                 }
-                printf("changed\n");
-            } else {
-                printf("err: file not found\n");
             }
         }
     }
@@ -279,41 +533,41 @@ void process_system_command(char *input) {
     else if (strcmp(cmd, "mv") == 0) {
         char o[128];
         char n[128];
-        printf("Key in your old file location: ");
-        scanf("%127s", o); 
-        printf("Key in your new file location: ");
-        scanf("%127s", n);
+        out("Key in your old file location: ");
+        in("", o); 
+        out("Key in your new file location: ");
+        in("", n);
     
         if (rename(o, n) == 0) {
-            printf("File moved successfully.\n");
+            out("File moved successfully.\n");
         } else {
-           perror("Error"); 
+            perror("errcode 3: file not provided\n");
         }
     }
 
     else if (strcmp(cmd, "save") == 0) {
         if (parsed_args < 2) {
-            printf("err: missing URL or Script file\n");
+            out("errcode 8 : url not provided\n");
         } else {
             if (strstr(arg1, ".seal") != NULL) {
-                printf("Script %s configuration saved successfully.\n", arg1);
+                out("Script %s configuration saved successfully.\n", arg1);
             } else {
-                printf("Connecting to remote server...\n");
-                printf("Downloading resources from: %s\n", arg1);
+                out("Connecting to remote server...\n");
+                out("Downloading resources from: %s\n", arg1);
                 
                 if (strstr(arg1, "codepad.app/pad/822052z5n") != NULL) {
                     FILE *dl = fopen("downloads/flag.txt", "w");
                     if (dl) {
                         fprintf(dl, "SEAL{c_strings_are_pointers_to_fun}\n");
                         fclose(dl);
-                        printf("Saved successfully to downloads/flag.txt\n");
+                        out("Saved successfully to downloads/flag.txt\n");
                     }
                 } else {
                     FILE *dl = fopen("downloads/index.html", "w");
                     if (dl) {
                         fprintf(dl, "\n<h1>SealOS Sandbox Landing</h1>\n");
                         fclose(dl);
-                        printf("Saved successfully to downloads/index.html\n");
+                        out("Saved successfully to downloads/index.html\n");
                     }
                 }
             }
@@ -321,36 +575,115 @@ void process_system_command(char *input) {
     }
     else if (strcmp(cmd, "exe") == 0) {
         if (parsed_args >= 2) {
-            strcpy(notes_name, arg1);
+            strncpy(notes_name, arg1, sizeof(notes_name) - 1);
+            notes_name[sizeof(notes_name) - 1] = '\0';
         } else {
-            printf("err: missing filename.\n");
+            out("errcode 3: file not provided\n");
             return; 
         }
-        
-        if (notes_mode == 0 && strcmp(arg1, "code.txt") == 0) {
-            printf("err: permission denied \n");
+
+        if (notes_mode == 0 && (strcmp(arg1, "code.txt") == 0 || strcmp(arg1, "code.c") == 0)) {
+            out("errcode 9 : permission denied \n");
         } else {
             char compile[512];
             snprintf(compile, sizeof(compile), "gcc %s -o main && ./main", arg1);
-            
             system(compile);
-            printf("\n");
+            out("\n");
         }
     }
 
+    else if (strcmp(cmd, "exe-python") == 0) {
+        if (parsed_args >= 2) {
+            strncpy(notes_name, arg1, sizeof(notes_name) - 1);
+            notes_name[sizeof(notes_name) - 1] = '\0';
+        } else {
+            out("errcode 3: file not provided\n");
+            return; 
+        }
+        if (notes_mode == 0 && (strcmp(arg1, "code") == 0 || strcmp(arg1, "code.py") == 0)) {
+            out("errcode 9 : permission denied \n");
+        } else {
+            char compile[512];
+            if (strstr(arg1, ".py") != NULL) {
+                snprintf(compile, sizeof(compile), "python3 %s", arg1);
+            } else {
+                snprintf(compile, sizeof(compile), "python3 %s.py", arg1);
+            }
+            system(compile);
+            out("\n");
+        }
+    }
+
+    else if (strcmp(cmd, "exe-java") == 0) {
+        if (parsed_args >= 2) {
+            strncpy(notes_name, arg1, sizeof(notes_name) - 1);
+            notes_name[sizeof(notes_name) - 1] = '\0';
+        } else {
+            out("errcode 3: file not provided\n");
+            return; 
+        }
+        
+        
+        if (notes_mode == 0 && (strcmp(arg1, "code") == 0 || strcmp(arg1, "code.java") == 0)) {
+            out("errcode 9 : permission denied \n");
+        } else {
+            char compile[512];
+           
+            char class_name[256];
+            strncpy(class_name, arg1, sizeof(class_name) - 1);
+            class_name[sizeof(class_name) - 1] = '\0';
+
+            char *ext = strstr(class_name, ".java");
+            if (ext) *ext = '\0'; 
+
+            snprintf(compile, sizeof(compile), "javac %s.java && java %s", class_name, class_name);
+            system(compile);
+            out("\n");
+        }
+    }
+
+    else if (strcmp(cmd, "exe-asm") == 0) {
+        if (parsed_args >= 2) {
+            strncpy(notes_name, arg1, sizeof(notes_name) - 1);
+            notes_name[sizeof(notes_name) - 1] = '\0';
+        } else {
+            out("errcode 3: file not provided\n");
+            return; 
+        }
+        
+        if (notes_mode == 0 && (strcmp(arg1, "code") == 0 || strcmp(arg1, "code.asm") == 0)) {
+            out("errcode 9 : permission denied \n");
+        } else {
+            char compile[512];
+            char basename[256];
+
+            strncpy(basename, arg1, sizeof(basename) - 1);
+            basename[sizeof(basename) - 1] = '\0';
+            char *ext = strstr(basename, ".asm");
+            if (ext) *ext = '\0';
+            snprintf(compile, sizeof(compile), 
+                     "nasm -f elf64 %s.asm -o %s.o && ld %s.o -o %s && ./%s", 
+                     basename, basename, basename, basename, basename);
+            
+            system(compile);
+            out("\n");
+        }
+    }
+
+
     else if (strcmp(cmd, "rnm") == 0) { 
         if (parsed_args < 2) {
-            printf("err: missing filename\n");
+            out("errcode 3: file not provided\n");
         } else {
             char old_path[128], new_path[128], new_name[64];
             sprintf(old_path, "documents/%s", arg1);
             
             FILE *check = fopen(old_path, "r");
             if (!check) {
-                printf("err: file missing\n");
+                out("errcode 3: file not provided\n");
             } else {
                 fclose(check);
-                printf("rename: ");
+                out("rename: ");
                 fflush(stdout);
                 if (fgets(new_name, sizeof(new_name), stdin) != NULL) {
                     new_name[strcspn(new_name, "\n")] = 0;
@@ -360,25 +693,25 @@ void process_system_command(char *input) {
                         if (strcmp(notes_name, arg1) == 0) {
                             strcpy(notes_name, new_name);
                         }
-                        printf("changed\n");
+                        out("changed\n");
                     } else {
-                        printf("err: rename unfound\n");
+                        out("errcode 10: name not provided\n");
                     }
                 }
             }
         }
     }
-    else if (strcmp(cmd, "mkfile") == 0) { 
+    else if (strcmp(cmd, "mkdir") == 0) { 
         if (parsed_args < 2) {
-            printf("err: missing name\n");
+            out("errcode 3: file not provided\n");
         } else {
             char folder_path[128];
             sprintf(folder_path, "documents/%s", arg1);
             
             if (mkdir(folder_path, 0777) == 0) {
-                printf("changed\n");
+                out("changed\n");
             } else {
-                printf("err: folder unable to generate\n");
+                out("errcode 10 : folder unable to generate\n");
             }
         }
     }
@@ -389,23 +722,23 @@ void process_system_command(char *input) {
     
         dir = opendir(".");
         if (dir == NULL){
-            printf("err: file locked or missing\n");
+            out("errcode 3: file not provided\n");
             return;
         }
 
         while ((entry = readdir(dir)) != NULL){
             if (entry->d_type == DT_REG){
-                printf("-: %s\n", entry->d_name);
+                out("-: %s\n", entry->d_name);
             }
             else if (entry->d_type == DT_DIR){
-                printf("d: %s\n", entry->d_name);
+                out("d: %s\n", entry->d_name);
             }
            
             
         }
 
         if (closedir(dir) == -1){
-            printf("err: file locked or missing\n");
+            out("errcode 3: file not provided\n");
             return;
         }
     }
@@ -420,7 +753,7 @@ void process_system_command(char *input) {
     
         dir = opendir(".");
         if (dir == NULL){
-            printf("err: file locked or missing\n");
+            out("errcode 3: file not provided\n");
             return;
         }
 
@@ -429,7 +762,7 @@ void process_system_command(char *input) {
 
             struct stat pstd;
             if (stat(fpath, &pstd) != 0) {
-                perror("err: file status unavailable");
+                perror("errcode 11 : file status down");
                 continue;
             }
 
@@ -442,12 +775,12 @@ void process_system_command(char *input) {
                 if (r == 0){read = '-';}
                 if (w == 0){write = '-';}
                 if (x == 0){execute = '-';}
-                printf("%c/%c/%c/%s\n", read,write,execute, entry->d_name);
+                out("%c/%c/%c/%s\n", read,write,execute, entry->d_name);
                 
             }
         }
         if (closedir(dir) == -1){
-            printf("err: file locked or missing\n");
+            out("errcode 3: file not provided\n");
             return;
         }
     }
@@ -463,7 +796,7 @@ void process_system_command(char *input) {
     
         dir = opendir(".");
         if (dir == NULL){
-            printf("err: file locked or missing\n");
+            out("errcode 3: file not provided\n");
             return;
         }
     
@@ -489,15 +822,15 @@ void process_system_command(char *input) {
             if (x == 0){execute = '-';}
             
             if (S_ISREG(pstd.st_mode)) {
-                printf("-/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
+                out("-/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
             } 
             else if (S_ISDIR(pstd.st_mode)) {
-                printf("d/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
+                out("d/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
             }
         }
     
         if (closedir(dir) == -1){
-            printf("err: file locked or missing\n");
+            out("errcode 3: file not provided\n");
             return;
         }
     }
@@ -513,7 +846,7 @@ void process_system_command(char *input) {
     
         dir = opendir(".");
         if (dir == NULL){
-            printf("err: file locked or missing\n");
+            out("errcode 3: file not provided\n");
             return;
         }
     
@@ -539,15 +872,15 @@ void process_system_command(char *input) {
             if (x == 0){execute = '-';}
             
             if (S_ISREG(pstd.st_mode)) {
-                printf("-/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
+                out("-/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
             } 
             else if (S_ISDIR(pstd.st_mode)) {
-                printf("d/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
+                out("d/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
             }
         }
     
         if (closedir(dir) == -1){
-            printf("err: file locked or missing\n");
+            out("errcode 3: file not provided\n");
             return;
         }
     }
@@ -557,36 +890,63 @@ void process_system_command(char *input) {
             strcpy(notes_name, arg1);
         }
         if (notes_mode == 0 && parsed_args >= 2 && strcmp(arg1, "notes.txt") == 0) {
-            printf("err: permission denied \n");
+            out("errcode 9 : permission denied \n");
         } else {
             get_current_path(loc, notes_name, notes_path);
             file = fopen(notes_path, "w");
             if (file) {
                 if (strstr(notes_name, ".seal") != NULL) {
-                    printf("ZL SCRIPT EDITOR (%s)\n ", notes_name);
+                    out("ZL SCRIPT EDITOR (%s)\n ", notes_name);
                 } else {
-                    printf("ZL FILE EDITOR (%s)\nEnter text: ", notes_name);
+                    out("ZL FILE EDITOR (%s)\nEnter text: ", notes_name);
                 }
                 fflush(stdout);
                 fgets(content, sizeof(content), stdin);
                 fprintf(file, "%s", content);
                 fclose(file);
-                printf("Saved successfully.\n");
+                out("Saved successfully.\n");
             } else {
-                printf("err: could not create file\n");
+                out("errcode 12 : could not create file\n");
             }
         }
     }
+
+    else if (strcmp(cmd, "pen") == 0) { 
+        if (parsed_args >= 2) {
+            strcpy(notes_name, arg1);
+        }
+        if (notes_mode == 0 && parsed_args >= 2 && strcmp(arg1, "notes.txt") == 0) {
+            out("errcode 9 : permission denied \n");
+        } else {
+            get_current_path(loc, notes_name, notes_path);
+            file = fopen(notes_path, "a+");
+            if (file) {
+                if (strstr(notes_name, ".seal") != NULL) {
+                    out("ZL SCRIPT EDITOR (%s)\n ", notes_name);
+                } else {
+                    out("ZL FILE EDITOR (%s)\nEnter text: ", notes_name);
+                }
+                fflush(stdout);
+                fgets(content, sizeof(content), stdin);
+                fprintf(file, "%s", content);
+                fclose(file);
+                out("Saved successfully.\n");
+            } else {
+                out("errcode 12 : could not create file\n");
+            }
+        }
+    }
+
     else if (strcmp(cmd, "pad") == 0) { 
         if (parsed_args >= 2) {
             strcpy(notes_name, arg1);
         }
         
         if (notes_mode == 0 && parsed_args >= 2 && strcmp(arg1, "code.txt") == 0) {
-            printf("err: permission denied \n");
+            out("errcode 9 : permission denied \n");
         } else {
-            printf("PAD EDITOR (%s)\n", notes_name);
-            printf("Type exit to save and exit\n\n");
+            out("PAD EDITOR (%s)\n", notes_name);
+            out("Type exit to save and exit\n\n");
             char line_buffer[512]; 
             get_current_path(loc, notes_name, notes_path);
             file = fopen(notes_path, "a+");
@@ -594,7 +954,7 @@ void process_system_command(char *input) {
             if (file) {
                 fseek(file, 0, SEEK_SET); 
                 while (fgets(line_buffer, sizeof(line_buffer), file) != NULL) {
-                    printf("%s", line_buffer);
+                    out("%s", line_buffer);
                 }
                 while (1) {
                     fflush(stdout);
@@ -607,35 +967,92 @@ void process_system_command(char *input) {
                     fprintf(file, "%s", content);
                 }
                 fclose(file);
-                printf("saved\n");
+                out("saved\n");
             } else {
-                printf("err: could not open file\n");
+                out("errcode 13 : could not open file\n");
             }
         }
     }
     else if (strcmp(cmd, "r") == 0) {
         if (parsed_args < 2) {
-            printf("err: missing filename\n");
+            out("errcode 3: file not provided\n");
         } else {
             if (strcmp(arg1, notes_name) == 0 && notes_mode == 0) {
-                printf("err: permission denied\n");
+                out("errcode 9 : permission denied\n");
             } else {
                 char read_path[128], line_buffer[256];
                 get_current_path(loc, arg1, read_path);
                 FILE *rf = fopen(read_path, "r");
                 if (rf) {
-                    printf("\n---------------------\n"); 
+                    out(" \n");
                     while (fgets(line_buffer, sizeof(line_buffer), rf) != NULL) {
-                        printf("%s", line_buffer);
+                        out("%s", line_buffer);
                     }
-                    printf("\n---------------------\n"); 
+                    out(" \n");
                     fclose(rf);
                 } else {
-                    printf("err: file locked or missing\n");
+                    out("errcode 3: file not provided\n");
                 }
             }
         }
     }
+
+    else if (strcmp(cmd, "head") == 0) {
+        if (parsed_args < 2) {
+            out("errcode 3: file not provided\n");
+        } else {
+            if (strcmp(arg1, notes_name) == 0 && notes_mode == 0) {
+                out("errcode 9 : permission denied\n");
+            } else {
+                int linesread = 10;
+                out ("Input how many lines you want to see this file: ");
+                in("", &linesread);
+                
+                char read_path[128], linebuffer[256];
+                get_current_path(loc, arg1, read_path);
+                FILE *rf = fopen(read_path, "r");
+                if (rf) {
+                    int linecount = 0;
+                    while (linecount < linesread && fgets(linebuffer, sizeof(linebuffer), rf) != NULL) {
+                        out(linebuffer);
+                        linecount++;
+                    }
+                    fclose(rf);
+                } else {
+                    out("errcode 3: file not provided\n");
+                }
+            }
+        }
+    }
+
+    else if (strcmp(cmd, "tail") == 0) {
+        if (parsed_args < 2) {
+            out("errcode 3: file not provided\n");
+        } else {
+            if (strcmp(arg1, notes_name) == 0 && notes_mode == 0) {
+                out("errcode 9 : permission denied\n");
+            } else {
+                int linesread = 10;
+                out ("Input how many lines you want to see this file: ");
+                in("", &linesread);
+                
+                char read_path[128], linebuffer[256];
+                get_current_path(loc, arg1, read_path);
+                FILE *rf = fopen(read_path, "r");
+                if (rf) {
+                    int linecount = 0;
+                    while (linecount < linesread && fgets(linebuffer, sizeof(linebuffer), rf) != NULL) {
+                        out(linebuffer);
+                        linecount--;
+                    }
+                    fclose(rf);
+                } else {
+                    out("errcode 3: file not provided\n");
+                }
+            }
+        }
+    }
+
     else if (strcmp(cmd, "info") == 0) {
 
         printf("                 ..^~:::::::::::....              \n");
@@ -652,11 +1069,19 @@ void process_system_command(char *input) {
             printf("       ....:::::^^^~~^^^:^~ : ^:::^^.......       \n");
             printf("                   .......^:~^~~^^.               \n");
             printf("\n");
-        printf("SealKernel 21.7.2026\n");
-        printf("Code Env.: CodePad\n");
-        printf("PC Info: Virtual\n");
-        printf("Copyleft SealKernel from ZL Project\n"); 
-        printf("2026\n");
+            printf("SealKernel 11.8.2026\n");
+            printf("Code Env.: VM\n");
+            printf("Code Env. 2: CodePad\n");
+            printf("Code: C, C++\n");
+            printf("Host: CodePad Server\n");
+            printf("PC Info: Virtual\n");
+            printf("Copyleft SealKernel from ZL Project\n");
+            printf("2026\n");
+            printf("QWERTYUIOPASDFGHJKLZXCVBNM1234567890\n");
+            out("\n");
+            time(&currentTime); 
+            out("%s", ctime(&currentTime));
+            tagged();
         
         }
         
@@ -677,79 +1102,67 @@ void process_system_command(char *input) {
             printf("                   .......^:~^~~^^.               \n");
             printf("\n");
         
-            FILE *fp = fopen("main.cpp", "rb");
-
-        if (fp == NULL){
-            perror("err: file unopened");
+            long size = 0;
+            filesize("main.cpp", "main.cpp");
+        
             
-        }
-
-        fseek(fp, 0, SEEK_END);
-        long size = ftell(fp);
         
-
-        fclose(fp);
-
-        printf("SealKernel 21.7.2026\n");
+            printf("SealKernel 11.8.2026\n");
+            printf("Code Env.: VM\n");
+            printf("Code Env. 2: CodePad\n");
+            printf("Code: C, C++\n");
+            printf("Host: CodePad Server\n");
+            printf("PC Info: Virtual\n");
+            
+            
         
-        printf("Code Env.: VM\n");
-        
-        printf("Code Env. 2: CodePad\n");
-        
-        printf("Code: C, C++\n");
-        
-        printf("Host: CodePad Server\n");
-        
-        printf("PC Info: Virtual\n");
-
-        printf("SealKernel Size: %ld bytes\n", size);
-        
-        printf("Copyleft SealKernel from ZL Project\n");
-        
-        printf("2026\n");
-        
-        printf("QWERTYUIOPASDFGHJKLZXCVBNM1234567890\n");
-        
+            printf("Copyleft SealKernel from ZL Project\n");
+            printf("2026\n");
+            printf("QWERTYUIOPASDFGHJKLZXCVBNM1234567890\n");
+            out("\n");
+            time(&currentTime); 
+            out("%s", ctime(&currentTime));
+            tagged();
         }
         
         
             
     else if (strcmp(cmd, "sizeofint") == 0){
-        printf("%zu\n", sizeof(q));
+        out("%zu\n", sizeof(q));
     }
     else if (strcmp(cmd, "sizeofchar") == 0){
-        printf("%zu\n", sizeof(w));
+        out("%zu\n", sizeof(w));
     }
     else if (strcmp(cmd, "sizeoffloat") == 0){
-        printf("%zu\n", sizeof(e));
+        out("%zu\n", sizeof(e));
     }
     else if (strcmp(cmd, "sizeoflong") == 0){
-        printf("%zu\n", sizeof(t));
+        out("%zu\n", sizeof(t));
     }
     else if (strcmp(cmd, "sizeofdouble") == 0){
-        printf("%zu\n", sizeof(r));
+        out("%zu\n", sizeof(r));
     }
     else if (strcmp(cmd, "goto") == 0) {
         if (strcmp(arg1, "home") == 0) loc = 1;
         else if (strcmp(arg1, "documents") == 0) loc = 2;
         else if (strcmp(arg1, "downloads") == 0) loc = 3;
         else if (strcmp(arg1, "system") == 0) loc = 4;
-        else printf("err: unknown folder\n");
+        else out("errcode 3: file not provided\n");
     }
 
     else if (strcmp(cmd, "sudo-on") == 0){
 
         if (strcmp(users, "seal") != 0){
-            printf("err: user doesn't have sudo power. Exit your user to either root or seal user\n");
+            out("errcode 14 : user doesn't have sudo power. Exit your user to either root or seal user\n");
         }
         else{
             superior = 1;
-            printf("sudo mode\n");
+            out("sudo mode\n");
         }
     }
     else if (strcmp(cmd, "sudo-off") == 0){
         superior = 0;
-        printf("normal mode\n");
+        out("normal mode\n");
     }
     else if (strcmp(cmd, "back") == 0) {
         loc = 0;
@@ -757,16 +1170,19 @@ void process_system_command(char *input) {
     else if (strcmp(cmd, "where") == 0) {
         const char* locations[] = {"root", "home", "documents", "downloads", "system"};
 
-        if (loc >= 0 && loc <= 4) printf("%s\n", locations[loc]);
-        else if (superior == 1) printf("superior/%s\n", locations[loc]);
+        if (loc >= 0 && loc <= 4) out("%s\n", locations[loc]);
+        else if (superior == 1) out("superior/%s\n", locations[loc]);
     }
     else if (strcmp(cmd, "version") == 0) {
-        printf("SealKernel 21.7.2026\n");
+        out("SealKernel 11.8.2026\n");
     }
     else if (strcmp(cmd, "release") == 0){
         printf("SealKernel 10 - can check size of variable class and can check version and release.\n");printf("SealKernel 11 - added curl to grab data from one site and added fast OS specification.\n");printf("SealKernel 12 [BETA] - added tsastream command to check streaming marks for TSIS student\n");printf("SealKernel 13 - Added calculator function andd improved tsastream\n"); printf("SealKernel 14 [BETA] - added tic tac toe game\n");printf("SealKernel 15 - added check storage in main.cpp\n");printf("SealKernel 16 - added check storage in main.cpp inside quick and about and removed TIC TAC TOE for ROCK PAPER SCISSORS game\n");printf("SealKernel 17 - fixed rock paper scissors game and added guess the number game\n"); printf ("SealKernel 18 - changed file locations and changed space-main.cpp to space. Also fixed game1\n");printf("SealKernel 19 - added game3 and game4 and also restricted exit command only for sudo user\n");printf("SealKernel 20 - added dice feature\n");printf("SealKernel 21 - fixed tsastream and removed quick and about for monthly cleaning (July)\n");    printf("SealKernel 22 - Improved tsastream\n");printf("SealKernel 23 - added luck program, element program and game5. Also improved pad function\n");printf("SealKernel 24 - added speed reaction game\n");printf("SealKernel 25 - Added conquer country game and also added bool. Also addded more space function (check out in help)\n");printf("SealKernel 26 - changed entire ls family, changed file structure\n");printf("SealKernel 27 - changed entire code structure of calculator\n");printf("SealKernel 28 - added move function and changed execute function\n");printf("SealKernel 16.7.2026 - changed version name from 28 to 16.7.2026 to indicate when was the version released, added more file for different purposes and also added image function. Finally, we also added file space for them\n");printf("SealKernel 17.7.2026 - added words, phrase and essay function\n");printf("SealKernel 19.7.2026 - prevent overflowing values for tsastream\n");printf("SealKernel 19.7.2026 More - created users function\n");
         printf("SealKernel 20.7.2026 - Changed input for user and also restricted normal user to root user so they cannot control the system and also added compress and decompress function\n");
         printf("SealKernel 21.7.2026 - added own package manager from bpm and also fixed Trigraphs error and other warnings\n");
+        printf("SealKernel 22.7.2026 - added browser function to show HTML code in website\n");printf("SealKernel 23.7.2026 - added bootloader and function clear\n");printf("SealKernel 26.7.2026 - fixed space and about function and added error code for future purposes\n");
+        printf("SealKernel 27.7.2026 - added 2026 next term expectation in beta so students can see their marks and see which class they are going to be in and break their hopes and dreams\n");printf("SealKernel 28.7.2026 - changed entire code structure for tsastream\n");printf("SealKernel 29.7.2026 - added game8 and game9 is in progress\n");
+        printf("SealKernel 30.7.2026 - added game10, game9 in progress and tsastream new update.\n");out("SealKernel 31.7.2026 - changed stdio lib to zlio lib.\n");out("SealKernel 1.8.2026 - added date to info and about and also improved tsastream\n");out("SealKernel 5.8.2026 - improved help, bootloader changed, added another text editor, extend execute function to other language and added system function\n");out("SealKernel 9.8.2026 - added history and clear history function and also made remove function more secure\n");out("SealKernel 11.8.2026 - added talktoseal feature and added head and tail feature\n");
     }
     else if (strcmp(cmd, "ls") == 0) {
         DIR *dir;
@@ -774,212 +1190,752 @@ void process_system_command(char *input) {
     
         dir = opendir(".");
         if (dir == NULL){
-            printf("err: file locked or missing\n");
+            out("errcode 3: file not provided\n");
             return;
         }
 
         while ((entry = readdir(dir)) != NULL){
-            printf("%s", entry->d_name);
-            printf("\n");
+            out("%s", entry->d_name);
+            out("\n");
             
         }
 
         if (closedir(dir) == -1){
-            printf("err: file locked or missing\n");
+            out("errcode 3: file not provided\n");
             return;
         }
             
     }
     else if (strcmp(cmd, "help") == 0) {
-        printf("SEALOS SCRIPT LIST:\n");
-        printf("goto (Folder) - goes to 1 folder\n");
-        printf("ls - list folders and files out\n");
-        printf("ls-d - list folders and files out detailed\n");
-        printf("info - show OS specification\n");
-        printf("about - show OS specification\n");
-        printf("w notes.txt - create/write a file called notes.txt\n");
-        printf("r notes.txt - read the contents of notes.txt\n"); 
-        printf("rnm notes.txt - rename notes.txt to something else\n");
-        printf("chmod notes.txt 1 - change notes.txt to public\n");
-        printf("chmod notes.txt 0 - change notes.txt to private\n");
-        printf("mkfile (folder name) - create (folder)\n"); 
-        printf("where - to show where you are\n");
-        printf("back - go back to root\n");
-        printf("eggs - secret\n");
-        printf("lemon - secret\n");
-        printf("echo (text) - repeat what you had key in\n");
-        printf("date - show current date and time\n");
-        printf("random - show random numbers\n");
-        printf("rm - remove file\n");
-        printf("save - download files from websites\n");
-        printf("w [name].seal - create a executable script\n");
-        printf("exe [name].seal - run .seal script\n");
-        printf("sizeof(variable class) - check size of variable class\n");
-        printf("release - check what has updated\n");
-        printf("version - check only the version\n");
-        printf("curl - search something online (might not work in online compiler)\n");
-        printf("tsastream - check your avg score for TSIS students\n");
-        printf("calc - simple calculator that you have to key in manually\n");
-        printf("space - to check space in main.cpp\n");
-        printf("space-downloads - to check space in downloads\n");
-        printf("space-documents - to check space in documents\n");
-        printf("space-home - to check space in home\n");
-        printf("space-music - to check space in music\n");
-        printf("space-pictures - to check space in pictures\n");
-        printf("space-videos - to check space in videos\n");
-        printf("space-examples - to check space in examples\n");
-        printf("space-system - to check space in system\n");
-        printf("space-others - to check space in other file/directory(folder)\n");
-        printf("game1 - plays rock paper scissors game (r for rock, s for scissors and p for paper)\n");
-        printf("game2 - guess the number game (type the number from 0 to 99 \n)");
-        printf("sudo-on - change to sudo user\n");
-        printf("sudo-off - change to normal user \n");
-        printf("game3 - flag capture game\n");
-        printf("game4 - gun game\n");
-        printf("sudo-exit - shut down only with sudo permissions\n");
-        printf("dice - roll a dice\n");
-        printf("luck - program that determines (will or wont) your luck\n");
-        printf("game5 - let the bot guess your number (from 0 to 99)\n");
-        printf("elements - let the system choose an element\n");
-        printf("game6 - Reaction Time Test\n");
-        printf("game7 - conquer country games\n");
-        printf("bool - system-controlled true-false answer\n");
-        printf("ls-t - check file type\n");
-        printf("ls-dt - check file type and in advance\n");
-        printf("ls-td - check file type and in advance\n");
-        printf("mv - move file\n");
-        printf("image - display image\n");
-        printf("essay - generate a random 5000 words essay\n");
-        printf("words - generate a random word\n");
-        printf("phrase - generate a random 20 words sentence\n");
-        printf("available - check how many users are there now\n");
-        printf("users - create and go into a user\n");
-        printf("whoami - check who you are\n");
-        printf("comp - compress a file\n");
-        printf("decomp - decompress a file\n");
-        printf("pkgmgr 0 (single file url) - only downloads a file from github or anywhere else\n");
-        printf("pkgmgr 1 (multi file url) - downloads multiple file from github or anywhere else\n");
-        printf("pkgmgr 2 (downloaded file) - run or use a downloaded file (some repositories cannot)\n");
+        out("SealKernel Functions:\n");
+        out("1. System functions:\n");
+        out(" \n");
+        out("chmod - change file to either public(1) or private (0)\n");
+        out("rm - remove a directory or a file\n");
+        out("mv - move a file to another location\n");
+        out("save - save a file\n");
+        out("exe - execute c/cpp file\n");
+        out("exe-python - execute py3 file\n");
+        out("exe-java - execute java file\n");
+        out("exe-asm - execute assembly file\n");
+        out("rnm - rename a file to another name\n");
+        out("mkdir - make a directory\n");
+        out("ls-t - list types of files\n");
+        out("ls-d - list files in advance\n");
+        out("ls-dt / ls-td - list types of files and look files in advance\n");
+        out("w - write a file\n");
+        out("pen - write a file but better than w\n");
+        out("pad - write a file but better than w and pen\n");
+        out("r - read a file\n");
+        out("info - view system infomation\n");
+        out("about - view system infomation but have more infomation\n");
+        out("goto - go to a file/directory\n");
+        out("sudo-on - turn on sudo mode\n");
+        out("sudo-off - turn off sudo mode\n");
+        out("back - go back to root / superior\n");
+        out("where - tells you your location\n");
+        out("version - tells you what version you are in\n");
+        out("ls - list down files\n");
+        out("echo - repeat what you key in\n");
+        out("date - WHAT IS THE DATE NOW???\n");
+        out("space - check space for tty1.cpp\n");
+        out("space-documents - check space for documents directory\n");
+        out("space-downloads - check space for downloads directory\n");
+        out("space-system - check space for system directory\n");
+        out("space-pictures - check space for pictures directory\n");
+        out("space-videos - check space for videos directory\n");
+        out("space-examples - check space for examples directory\n");
+        out("space-music - check space for music directory\n");
+        out("space-home - check space for home directory\n");
+        out("space-others - check space for other directory/files\n");
+        out("users - make a temporary user\n");
+        out("users-seal - delete and go into seal user\n");
+        out("whoami - print out who you are\n");
+        out("available - print out active users\n");
+        out("available-t - print out active users in detail\n");
+        out("version-zlio - shows the version of SealKernel's own IO library\n");
+        out("system - shows what OS you are running\n");
+        out("sudo-exit - shut down / exit this program\n");
+        out("history - check previous commands\n");
+        out("clear-history - delete previous commands\n");
+        out("head - show the first (n) lines of a file\n");
+        out("tail - show the last (n) lines of a file\n");
+        
+        
+        
+
+        out(" \n");
+        out("2. Sizes\n");
+        out(" \n");
+        out("sizeofint - look at size of integer\n");
+        out("sizeofchar - look at size of character\n");
+        out("sizeoffloat - look at size of float\n");
+        out("sizeofdouble - look at size of double\n");
+        out("sizeoflong - look at size of long\n");
+
+        out(" \n");
+        out("3. Other apps\n");
+        out(" \n");
+        out("tsastream - look at your class and streaming marks for TSIS students\n");
+        out("tsastream-free - look at your class and streaming marks for TSIS students\n");
+        out("calc - calculator\n");
+        out("version-calc - calculator version\n");
+        out("random - gives out random numbers\n");
+        out("elements - gives you a random element\n");
+        out("bool - let the computer gives you 1 or 0\n");
+        out("image - turns an image to ASCII art\n");
+        out("phrase - gives you a random sentence\n");
+        out("words - gives you a random word\n");
+        out("essay - gives you a random essay\n");
+        out("talktoseal - talk to the seal\n");
+        out("talktoseal - talk to the seal but the output are in human language\n");
+        out("comp - 'compress' a file\n");
+        out("decomp - 'decompress' a file\n");
+        out("pkgmgr add (URL) - download a single file\n");
+        out("pkgmgr clone (URL) - run or use a download file (some repo cannot)\n");
+        out("browser - show the code of a page\n");
+        out("luck - shows ur luck\n");
+
+        out(" \n");
+        out("4. ASCII Arts\n");
+        out(" \n");
+        out("lemon - lemon art\n");
+        out("eggs - eggs art\n");
+
+        out(" \n");
+        out("5. Games\n");
+        out(" \n");
+        out("game1 - rock paper scissors game\n");
+        out("game2 - guess the number game\n");
+        out("game3 - capture the flag game\n");
+        out("game4 - gun game\n");
+        out("game5 - but guessing our number game\n");
+        out("game6 - reaction time test game\n");
+        out("game7 - country game\n");
+        out("game8 - lamp guessing game\n");
+        out("game9 - text sniping rpg game\n");
+        out("game10 - avoid the chosen number game\n");
     }
     else if (strcmp(cmd, "echo") == 0) {
-        printf("%s\n", input + (strlen(input) > 4 ? 5 : 0));
+        out("%s\n", input + (strlen(input) > 4 ? 5 : 0));
     }
+
     else if (strcmp(cmd, "tsastream") == 0) {
         
+        double math;
+        double chemistry;
+        double physics;
+        double biology;
+        double history;
+        double geography;
+        double sejarah;
+        int input;
+        char file1 [128];
+        int file2;
+        char class2025 [128];
+        char class2026 [128];
+        char classExpectation [128];
+        int avg;
+        char consumer [128];
         
-        float math;
-        float chemistry;
-        float physics;
-        float biology;
-        float history;
-        float geography;
+        out("Which version do you want to choose?\n");
+        out("1. Normal Version\n");
+        out("2. New Version\n");
+        in("", &input);
+
+        out("Write your user (NOTE THAT WRITING YOUR REAL NAME IS NOT RECOMMENDED): ");
+        in("", consumer);
+
+        if (input == 1){
+            out("Input your math marks: ");
+            in("", &math);
+            if (math < 0 || math >100){
+                out("errcode 16 : value must be less than 101 and more than -1\n");
+                return;
+            }
+            out("Input your chemistry marks: ");
+            in("", &chemistry);
+            if (chemistry < 0 || chemistry >100){
+                out("errcode 16 : value must be less than 101 and more than -1\n");
+                return;
+            }
+            out("Input your biology marks: ");
+            in("", &biology);
+            if (biology < 0 || biology >100){
+                out("errcode 16 : value must be less than 101 and more than -1\n");
+                return;
+            }
+            out("Input your physics marks: ");
+            in("", &physics);
+            if (physics < 0 || physics >100){
+                out("errcode 16 : value must be less than 101 and more than -1\n");
+                return;
+            }
+            out("Input your geography marks: ");
+            in("", &geography);
+            if (geography < 0 || geography >100){
+                out("errcode 16 : value must be less than 101 and more than -1\n");
+                return;
+            }
+            out("Input your history marks: ");
+            in("", &history);
+            if (history < 0 || history >100){
+                out("errcode 16 : value must be less than 101 and more than -1\n");
+                return;
+            }
+
+            double math_pct = math * 0.55;
+            double chem_pct = chemistry * 0.125;
+            double bio_pct = biology * 0.1;
+            double phy_pct = physics * 0.125;
+            double geo_pct = geography * 0.05;
+            double his_pct = history * 0.05;
+            avg = math_pct+chem_pct+bio_pct+phy_pct+geo_pct+his_pct;
+
+            out("Your streaming mark is: %d%%\n", avg);
+            if (avg >= 90){
+                strcpy(class2025, "Acacia");
+            }
+            else if (avg >= 80 && avg < 90){
+                strcpy(class2025, "Aster");
+            }
+            else if (avg >= 70 && avg < 80){
+                strcpy(class2025, "Begonia");
+            }
+            else if (avg >= 60 && avg < 70){
+                strcpy(class2025, "Castanea");
+            }
+            else if (avg >= 50 && avg < 60){
+                strcpy(class2025, "Juniper / MX Intensive 1");
+            }
+            else if (avg < 50){
+                strcpy(class2025, "Magnolia / MX Intensive 2 / MX Intensive");
+            }
+            out("2025 streaming mark: %s\n", class2025);
+
+            if (avg >= 70){
+                strcpy(class2026, "Acacia");
+            }
+            else if (avg >= 60 && avg < 70){
+                strcpy(class2026, "Aster");
+            }
+            else if (avg >= 50 && avg < 60){
+                strcpy(class2026, "Begonia");
+            }
+            else if (avg >= 40 && avg < 50){
+                strcpy(class2026, "Castanea");
+            }
+            else if (avg < 40){
+                strcpy(class2026, "MX Intensive 1 & 2");
+            }
+            out("2026 streaming mark: %s\n", class2026);
+
+            if (avg >= 80){
+                strcpy(classExpectation, "Acacia");
+            }
+            else if (avg >= 70 && avg < 80){
+                strcpy(classExpectation, "Aster");
+            }
+            else if (avg >= 60 && avg < 70){
+                strcpy(classExpectation, "Begonia");
+            }
+            else if (avg >= 50 && avg < 60){
+                strcpy(classExpectation, "Castanea");
+            }
+            else if (avg >= 40 && avg < 50){
+                strcpy(classExpectation, "Juniper");
+            }
+            else if (avg >= 30 && avg < 40){
+                strcpy(classExpectation, "Magnolia");
+            }
+            else if (avg >= 20 && avg < 30){
+                strcpy(classExpectation, "MX Intensive 1");
+            }
+            else if (avg < 20){
+                strcpy(classExpectation, "MX Intensive 2");
+            }
+            out("2026 New Term Expectation: %s\n", classExpectation);
+        }
+
+        else if (input == 2){
+            out("Input your math marks: ");
+            in("", &math);
+            if (math < 0 || math >100){
+                out("errcode 16 : value must be less than 101 and more than -1\n");
+                return;
+            }
+            out("Input your chemistry marks: ");
+            in("", &chemistry);
+            if (chemistry < 0 || chemistry >100){
+                out("errcode 16 : value must be less than 101 and more than -1\n");
+                return;
+            }
+            out("Input your biology marks: ");
+            in("", &biology);
+            if (biology < 0 || biology >100){
+                out("errcode 16 : value must be less than 101 and more than -1\n");
+                return;
+            }
+            out("Input your physics marks: ");
+            in("", &physics);
+            if (physics < 0 || physics >100){
+                out("errcode 16 : value must be less than 101 and more than -1\n");
+                return;
+            }
+            out("Input your geography marks: ");
+            in("", &geography);
+            if (geography < 0 || geography >100){
+                out("errcode 16 : value must be less than 101 and more than -1\n");
+                return;
+            }
+            out("Input your history marks: ");
+            in("", &history);
+            if (history < 0 || history >100){
+                out("errcode 16 : value must be less than 101 and more than -1\n");
+                return;
+            }
+
+            out("Input your sejarah marks: ");
+            in("", &sejarah);
+            if (sejarah < 0 || sejarah >100){
+                out("errcode 16 : value must be less than 101 and more than -1\n");
+                return;
+            }
+
+            if (input == 1){
+                float math_pct = math * 0.55;
+                float chem_pct = chemistry * 0.125;
+                float bio_pct = biology * 0.1;
+                float phy_pct = physics * 0.125;
+                float geo_pct = geography * 0.05;
+                float his_pct = history * 0.05;
+                avg = math_pct+chem_pct+bio_pct+phy_pct+geo_pct+his_pct;
+            }
+
+            if (input == 2){
+                float math_pct = math * 0.5;
+                float chem_pct = chemistry * 0.125;
+                float bio_pct = biology * 0.1;
+                float phy_pct = physics * 0.125;
+                float geo_pct = geography * 0.05;
+                float his_pct = history * 0.05;
+                float sej_pct = sejarah * 0.05;
+                avg = math_pct+chem_pct+bio_pct+phy_pct+geo_pct+his_pct+sej_pct;
+            }
+
+            
+            out("Your streaming mark is: %d%%\n", avg);
+            if (avg >= 90){
+                strcpy(class2025, "Acacia");
+            }
+            else if (avg >= 80 && avg < 90){
+                strcpy(class2025, "Aster");
+            }
+            else if (avg >= 70 && avg < 80){
+                strcpy(class2025, "Begonia");
+            }
+            else if (avg >= 60 && avg < 70){
+                strcpy(class2025, "Castanea");
+            }
+            else if (avg >= 50 && avg < 60){
+                strcpy(class2025, "Juniper / MX Intensive 1");
+            }
+            else if (avg < 50){
+                strcpy(class2025, "Magnolia / MX Intensive 2 / MX Intensive");
+            }
+            out("2025 streaming mark: %s\n", class2025);
+
+            if (avg >= 70){
+                strcpy(class2026, "Acacia");
+            }
+            else if (avg >= 60 && avg < 70){
+                strcpy(class2026, "Aster");
+            }
+            else if (avg >= 50 && avg < 60){
+                strcpy(class2026, "Begonia");
+            }
+            else if (avg >= 40 && avg < 50){
+                strcpy(class2026, "Castanea");
+            }
+            else if (avg < 40){
+                strcpy(class2026, "MX Intensive 1 & 2");
+            }
+            out("2026 streaming mark: %s\n", class2026);
+
+            if (avg >= 80){
+                strcpy(classExpectation, "Acacia");
+            }
+            else if (avg >= 70 && avg < 80){
+                strcpy(classExpectation, "Aster");
+            }
+            else if (avg >= 60 && avg < 70){
+                strcpy(classExpectation, "Begonia");
+            }
+            else if (avg >= 50 && avg < 60){
+                strcpy(classExpectation, "Castanea");
+            }
+            else if (avg >= 40 && avg < 50){
+                strcpy(classExpectation, "Juniper");
+            }
+            else if (avg >= 30 && avg < 40){
+                strcpy(classExpectation, "Magnolia");
+            }
+            else if (avg >= 20 && avg < 30){
+                strcpy(classExpectation, "MX Intensive 1");
+            }
+            else if (avg < 20){
+                strcpy(classExpectation, "MX Intensive 2");
+            }
+            out("2026 New Term Expectation: %s\n", classExpectation);
+        }
+        else {
+            out("Only 1 and 2 allowed. Retype this function to try again.\n");
+            return;
+        }
+
+        
+        FILE *fptr = fopen("grades.txt", "a");
+        if (fptr == NULL) {
+            perror("Error opening file");
+            return;
+        }
+
+        fprintf(fptr,"----------------------------------\n");
+        fprintf(fptr, "User: %s\n", consumer);
+
+        fprintf(fptr, "Math, %.2f\n", math);
+        fprintf(fptr, "Physics, %.2f\n", physics);
+        fprintf(fptr, "Chemistry, %.2f\n", chemistry);
+        fprintf(fptr, "Biology, %.2f\n", biology);
+        fprintf(fptr, "History, %.2f\n", history);
+        fprintf(fptr, "Geography, %.2f\n", geography);
+        fprintf(fptr, "Average, %d\n", avg);
+        fprintf(fptr, "2025 Class, %s\n", class2025);
+        fprintf(fptr, "2026 Class, %s\n", class2026);
+        fprintf(fptr, "2026 Expectation Class, %s\n", classExpectation);
+
+        fprintf(fptr,"----------------------------------\n");
+
+
+        fclose(fptr);
+
         
         
-        printf("Input your math marks: ");
-        scanf("%f", &math);
-        if (math < 0 || math >100){
-            printf("err: value must be less than 101 and more than -1\n");
-            return;
-        }
-        printf("Input your chemistry marks: ");
-        scanf("%f", &chemistry);
-        if (chemistry < 0 || chemistry >100){
-            printf("err: value must be less than 101 and more than -1\n");
-            return;
-        }
-        printf("Input your biology marks: ");
-        scanf("%f", &biology);
-        if (biology < 0 || biology >100){
-            printf("err: value must be less than 101 and more than -1\n");
-            return;
-        }
-        printf("Input your physics marks: ");
-        scanf("%f", &physics);
-        if (physics < 0 || physics >100){
-            printf("err: value must be less than 101 and more than -1\n");
-            return;
-        }
-        printf("Input your geography marks: ");
-        scanf("%f", &geography);
-        if (geography < 0 || geography >100){
-            printf("err: value must be less than 101 and more than -1\n");
-            return;
-        }
-        printf("Input your history marks: ");
-        scanf("%f", &history);
-        if (history < 0 || history >100){
-            printf("err: value must be less than 101 and more than -1\n");
-            return;
-        }
+    }
 
-
-        float math_pct = math * 0.55;
-        float chem_pct = chemistry * 0.125;
-        float bio_pct = biology * 0.1;
-        float phy_pct = physics * 0.125;
-        float geo_pct = geography * 0.05;
-        float his_pct = history * 0.05;
-
-        int avg = math_pct+chem_pct+bio_pct+phy_pct+geo_pct+his_pct;
-
+    else if (strcmp(cmd, "tsastream-free") == 0) {
         
-        printf("Your streaming mark is: %.d%%\n", avg);
-        if (avg >= 90){
-            printf("2025 streaming mark: Acacia\n");
-        }
-        else if (avg >= 80 && avg < 90){
-            printf("2025 streaming mark: Aster\n");
-        }
-
-        else if (avg >= 70 && avg < 80){
-            printf("2025 streaming mark: Begonia\n");
-        }
-
-        else if (avg >= 60 && avg < 70){
-            printf("2025 streaming mark: Castanea\n");
-        }
-
-        else if (avg >= 50 && avg < 60){
-            printf("2025 streaming mark: Juniper / MX Intensive 1\n");
-        }
-
-        else if (avg < 50){
-            printf("2025 streaming mark: Magnolia/ MX Intensive 2 / MX Intensive\n");
-        }
-
-        if (avg >= 70){
-            printf("2026 streaming mark: Acacia\n");
-        }
-        else if (avg >= 60 && avg < 70){
-            printf("2026 streaming mark: Aster\n");
-        }
-
-        else if (avg >= 50 && avg < 60){
-            printf("2026 streaming mark: Begonia\n");
-        }
-
-        else if (avg >= 40 && avg < 50){
-            printf("2026 streaming mark: Castanea\n");
-        }
-
-        else if (avg < 40){
-            printf("2026 streaming mark: MX Intensive 1 & 2\n");
-        }
+        double math;
+        double chemistry;
+        double physics;
+        double biology;
+        double history;
+        double geography;
+        double sejarah;
+        int input;
+        char file1 [128];
+        int file2;
+        char class2025 [128];
+        char class2026 [128];
+        char classExpectation [128];
+        int avg;
+        char consumer [128];
         
+        out("Which version do you want to choose?\n");
+        out("1. Normal Version\n");
+        out("2. New Version\n");
+        in("", &input);
+
+        out("Write your user (NOTE THAT WRITING YOUR REAL NAME IS NOT RECOMMENDED): ");
+        in("", consumer);
+
+        if (input == 1){
+            out("Input your math marks: ");
+            in("", &math);
+            if (math < 0 || math >100){
+                out("errcode 16 : value must be less than 101 and more than -1\n");
+                return;
+            }
+            out("Input your chemistry marks: ");
+            in("", &chemistry);
+            if (chemistry < 0 || chemistry >100){
+                out("errcode 16 : value must be less than 101 and more than -1\n");
+                return;
+            }
+            out("Input your biology marks: ");
+            in("", &biology);
+            if (biology < 0 || biology >100){
+                out("errcode 16 : value must be less than 101 and more than -1\n");
+                return;
+            }
+            out("Input your physics marks: ");
+            in("", &physics);
+            if (physics < 0 || physics >100){
+                out("errcode 16 : value must be less than 101 and more than -1\n");
+                return;
+            }
+            out("Input your geography marks: ");
+            in("", &geography);
+            if (geography < 0 || geography >100){
+                out("errcode 16 : value must be less than 101 and more than -1\n");
+                return;
+            }
+            out("Input your history marks: ");
+            in("", &history);
+            if (history < 0 || history >100){
+                out("errcode 16 : value must be less than 101 and more than -1\n");
+                return;
+            }
+
+            double math_pct = math * 0.55;
+            double chem_pct = chemistry * 0.125;
+            double bio_pct = biology * 0.1;
+            double phy_pct = physics * 0.125;
+            double geo_pct = geography * 0.05;
+            double his_pct = history * 0.05;
+            avg = math_pct+chem_pct+bio_pct+phy_pct+geo_pct+his_pct;
+
+            out("Your streaming mark is: %d%%\n", avg);
+            if (avg >= 90){
+                strcpy(class2025, "Acacia");
+            }
+            else if (avg >= 80 && avg < 90){
+                strcpy(class2025, "Aster");
+            }
+            else if (avg >= 70 && avg < 80){
+                strcpy(class2025, "Begonia");
+            }
+            else if (avg >= 60 && avg < 70){
+                strcpy(class2025, "Castanea");
+            }
+            else if (avg >= 50 && avg < 60){
+                strcpy(class2025, "Juniper / MX Intensive 1");
+            }
+            else if (avg < 50){
+                strcpy(class2025, "Magnolia / MX Intensive 2 / MX Intensive");
+            }
+            out("2025 streaming mark: %s\n", class2025);
+
+            if (avg >= 70){
+                strcpy(class2026, "Acacia");
+            }
+            else if (avg >= 60 && avg < 70){
+                strcpy(class2026, "Aster");
+            }
+            else if (avg >= 50 && avg < 60){
+                strcpy(class2026, "Begonia");
+            }
+            else if (avg >= 40 && avg < 50){
+                strcpy(class2026, "Castanea");
+            }
+            else if (avg < 40){
+                strcpy(class2026, "MX Intensive 1 & 2");
+            }
+            out("2026 streaming mark: %s\n", class2026);
+
+            if (avg >= 80){
+                strcpy(classExpectation, "Acacia");
+            }
+            else if (avg >= 70 && avg < 80){
+                strcpy(classExpectation, "Aster");
+            }
+            else if (avg >= 60 && avg < 70){
+                strcpy(classExpectation, "Begonia");
+            }
+            else if (avg >= 50 && avg < 60){
+                strcpy(classExpectation, "Castanea");
+            }
+            else if (avg >= 40 && avg < 50){
+                strcpy(classExpectation, "Juniper");
+            }
+            else if (avg >= 30 && avg < 40){
+                strcpy(classExpectation, "Magnolia");
+            }
+            else if (avg >= 20 && avg < 30){
+                strcpy(classExpectation, "MX Intensive 1");
+            }
+            else if (avg < 20){
+                strcpy(classExpectation, "MX Intensive 2");
+            }
+            out("2026 New Term Expectation: %s\n", classExpectation);
+        }
+
+        else if (input == 2){
+            out("Input your math marks: ");
+            in("", &math);
+            if (math < 0 || math >100){
+                printf("errcode 16 : value must be less than 101 and more than -1\n");
+                return;
+            }
+            out("Input your chemistry marks: ");
+            in("", &chemistry);
+            if (chemistry < 0 || chemistry >100){
+                out("errcode 16 : value must be less than 101 and more than -1\n");
+                return;
+            }
+            out("Input your biology marks: ");
+            in("", &biology);
+            if (biology < 0 || biology >100){
+                out("errcode 16 : value must be less than 101 and more than -1\n");
+                return;
+            }
+            out("Input your physics marks: ");
+            in("", &physics);
+            if (physics < 0 || physics >100){
+                out("errcode 16 : value must be less than 101 and more than -1\n");
+                return;
+            }
+            out("Input your geography marks: ");
+            in("", &geography);
+            if (geography < 0 || geography >100){
+                out("errcode 16 : value must be less than 101 and more than -1\n");
+                return;
+            }
+            out("Input your history marks: ");
+            in("", &history);
+            if (history < 0 || history >100){
+                out("errcode 16 : value must be less than 101 and more than -1\n");
+                return;
+            }
+
+            if (input == 1){
+                float math_pct = math * 0.55;
+                float chem_pct = chemistry * 0.125;
+                float bio_pct = biology * 0.1;
+                float phy_pct = physics * 0.125;
+                float geo_pct = geography * 0.05;
+                float his_pct = history * 0.05;
+                avg = math_pct+chem_pct+bio_pct+phy_pct+geo_pct+his_pct;
+            }
+
+            if (input == 2){
+                float math_pct = math * 0.5;
+                float chem_pct = chemistry * 0.125;
+                float bio_pct = biology * 0.1;
+                float phy_pct = physics * 0.125;
+                float geo_pct = geography * 0.05;
+                float his_pct = history * 0.05;
+                float sej_pct = sejarah * 0.05;
+                avg = math_pct+chem_pct+bio_pct+phy_pct+geo_pct+his_pct+sej_pct;
+            }
+
+            printf("Your streaming mark is: %d%%\n", avg);
+            if (avg >= 90){
+                strcpy(class2025, "Acacia");
+            }
+            else if (avg >= 80 && avg < 90){
+                strcpy(class2025, "Aster");
+            }
+            else if (avg >= 70 && avg < 80){
+                strcpy(class2025, "Begonia");
+            }
+            else if (avg >= 60 && avg < 70){
+                strcpy(class2025, "Castanea");
+            }
+            else if (avg >= 50 && avg < 60){
+                strcpy(class2025, "Juniper / MX Intensive 1");
+            }
+            else if (avg < 50){
+                strcpy(class2025, "Magnolia / MX Intensive 2 / MX Intensive");
+            }
+            out("2025 streaming mark: %s\n", class2025);
+
+            if (avg >= 70){
+                strcpy(class2026, "Acacia");
+            }
+            else if (avg >= 60 && avg < 70){
+                strcpy(class2026, "Aster");
+            }
+            else if (avg >= 50 && avg < 60){
+                strcpy(class2026, "Begonia");
+            }
+            else if (avg >= 40 && avg < 50){
+                strcpy(class2026, "Castanea");
+            }
+            else if (avg < 40){
+                strcpy(class2026, "MX Intensive 1 & 2");
+            }
+            out("2026 streaming mark: %s\n", class2026);
+
+            if (avg >= 80){
+                strcpy(classExpectation, "Acacia");
+            }
+            else if (avg >= 70 && avg < 80){
+                strcpy(classExpectation, "Aster");
+            }
+            else if (avg >= 60 && avg < 70){
+                strcpy(classExpectation, "Begonia");
+            }
+            else if (avg >= 50 && avg < 60){
+                strcpy(classExpectation, "Castanea");
+            }
+            else if (avg >= 40 && avg < 50){
+                strcpy(classExpectation, "Juniper");
+            }
+            else if (avg >= 30 && avg < 40){
+                strcpy(classExpectation, "Magnolia");
+            }
+            else if (avg >= 20 && avg < 30){
+                strcpy(classExpectation, "MX Intensive 1");
+            }
+            else if (avg < 20){
+                strcpy(classExpectation, "MX Intensive 2");
+            }
+            out("2026 New Term Expectation: %s\n", classExpectation);
+        }
+        else {
+            out("Only 1 and 2 allowed. Retype this function to try again.\n");
+            return;
+        }
+
+        out("Do YOU want to write into a file?\n");
+        out("Yes - 1\n");
+        out("No - Other numbers\n");
+        in("", &file2);
+        if (file2 == 1){
+            out("What file do you want to write into? (example: filename.txt)\n");
+            out("NOTE that if you key in an existing file it would not overwrite but instead append it\n");
+            in("%127s", file1);
+            FILE *fptr = fopen(file1, "a");
+            if (fptr == NULL) {
+                perror("Error opening file");
+                return;
+            }
+
+            fprintf(fptr,"----------------------------------\n");
+            fprintf(fptr, "User: %s\n", consumer);
 
 
+            fprintf(fptr, "Math, %.2f\n", math);
+            fprintf(fptr, "Physics, %.2f\n", physics);
+            fprintf(fptr, "Chemistry, %.2f\n", chemistry);
+            fprintf(fptr, "Biology, %.2f\n", biology);
+            fprintf(fptr, "History, %.2f\n", history);
+            fprintf(fptr, "Geography, %.2f\n", geography);
+            fprintf(fptr, "Average, %d\n", avg);
+            fprintf(fptr, "2025 Class, %s\n", class2025);
+            fprintf(fptr, "2026 Class, %s\n", class2026);
+            fprintf(fptr, "2026 Expectation Class, %s\n", classExpectation);
+
+            fprintf(fptr,"----------------------------------\n");
+
+
+            fclose(fptr);
+            out("Writing saved as %s\n", file1);
+
+        }
         
     }
     else if (strcmp(cmd, "date") == 0) {
         time(&currentTime); 
-        printf("%s", ctime(&currentTime));
+        out("%s", ctime(&currentTime));
     }
     
     else if (strcmp(cmd, "random") == 0) {
-        printf("%d\n", rand());
+        out("%d\n", rand());
     }
     else if (strcmp(cmd, "lemon") == 0) {
-        printf(R"(..................................................
+        out(R"(..................................................
             ...........:::^^~~~~~~~~~^^::.....................
             .......::^~~~!!!!!!!!!!777777!~^::................
             ...::^~~~~~~~~~~~~!!!!!7777777??77!~:.............
@@ -998,7 +1954,7 @@ void process_system_command(char *input) {
             )");
     }
     else if (strcmp(cmd, "eggs") == 0) {
-        printf("                              \n"
+        out("                              \n"
                "            .::.              \n"
                "           :!~~~~  ...        \n"
                "          :77!~~7~~!~~~:      \n"
@@ -1010,202 +1966,81 @@ void process_system_command(char *input) {
     }
     else if (strcmp(cmd, "calc") == 0) {
         double output;
-        printf("Before procedding, if u want to calculate roots, the big number is the first number and the root is the second number. Same applies to powers.\n");
-        printf("Enter your case: (+, -, *, /, 'R' for roots, ^ for powers)\n");
-        scanf("%c", &op);
-        printf("Enter your first number:\n");
-        scanf("%lf", &firstnum);
-        printf("Enter your second number:\n");
-        scanf("%lf", &secondnum);
+        out("Before procedding, if u want to calculate roots, the big number is the first number and the root is the second number. Same applies to powers.\n");
+        out("Enter your case: (+, -, *, /, 'R' for roots, ^ for powers)\n");
+        in("", &op);
+        out("Enter your first number:\n");
+        in("", &firstnum);
+        out("Enter your second number:\n");
+        in("", &secondnum);
 
         if (op == '+'){
             double output = firstnum + secondnum;
-            printf("%lf\n", output);
+            out("%lf\n", output);
         }
         else if (op == '-'){
             double output = firstnum - secondnum;
-            printf("%lf\n", output);
+            out("%lf\n", output);
         }
         else if (op == '*'){
             double output = firstnum * secondnum;
-            printf("%lf\n", output);
+            out("%lf\n", output);
         }
         else if (op == '/'){
             double output = firstnum / secondnum;
-            printf("%lf\n", output);
+            out("%lf\n", output);
         }
         else if (op == '^'){
             double output = pow(firstnum, secondnum);
-            printf("%lf\n", output);
+            out("%lf\n", output);
         }
         else if (op == 'R'){
             double output = pow(firstnum, 1.0 / secondnum);
-            printf("%lf\n", output);
+            out("%lf\n", output);
         }
         else{
-            printf("err: operator not found");
+            out("errcode 15 : operator not found");
         }
+    }
+
+    else if (strcmp(cmd, "version-calc") == 0){
+        out("Calc Function by ZileLai - Version 2.1.0\n");
     }
     
 
-    else if (strcmp(cmd, "space") == 0){
-        FILE *fp = fopen("tty2.cpp", "rb");
-        
-
-        if (fp == NULL){
-            perror("err: file unopened");
-            
-        }
-
-        fseek(fp, 0, SEEK_END);
-        long size = ftell(fp);
-        printf("tty2.cpp: %ld bytes\n", size);
-
-        fclose(fp);
+    else if (strcmp(cmd, "space") == 0) {
+        filesize("tty1.cpp", "tty1.cpp");
     }
-
-    else if (strcmp(cmd, "space-documents") == 0){
-        FILE *fp = fopen("documents", "rb");
-        
-
-        if (fp == NULL){
-            perror("err: file unopened");
-            
-        }
-
-        fseek(fp, 0, SEEK_END);
-        long size = ftell(fp);
-        printf("documents: %ld bytes\n", size);
-
-        fclose(fp);
+    else if (strcmp(cmd, "space-documents") == 0) {
+        filesize("documents", "documents");
     }
-
-    else if (strcmp(cmd, "space-downloads") == 0){
-        FILE *fp = fopen("downloads", "rb");
-        
-
-        if (fp == NULL){
-            perror("err: file unopened");
-            
-        }
-
-        fseek(fp, 0, SEEK_END);
-        long size = ftell(fp);
-        printf("downloads: %ld bytes\n", size);
-
-        fclose(fp);
+    else if (strcmp(cmd, "space-downloads") == 0) {
+        filesize("downloads", "downloads");
     }
-
-    else if (strcmp(cmd, "space-home") == 0){
-        FILE *fp = fopen("home", "rb");
-        
-
-        if (fp == NULL){
-            perror("err: file unopened");
-            
-        }
-
-        fseek(fp, 0, SEEK_END);
-        long size = ftell(fp);
-        printf("home: %ld bytes\n", size);
-
-        fclose(fp);
+    else if (strcmp(cmd, "space-home") == 0) {
+        filesize("home", "home");
     }
-    else if (strcmp(cmd, "space-examples") == 0){
-        FILE *fp = fopen("examples", "rb");
-        
-
-        if (fp == NULL){
-            perror("err: file unopened");
-            
-        }
-
-        fseek(fp, 0, SEEK_END);
-        long size = ftell(fp);
-        printf("examples: %ld bytes\n", size);
-
-        fclose(fp);
+    else if (strcmp(cmd, "space-examples") == 0) {
+        filesize("examples", "examples");
     }
-    else if (strcmp(cmd, "space-videos") == 0){
-        FILE *fp = fopen("videos", "rb");
-        
-
-        if (fp == NULL){
-            perror("err: file unopened");
-            
-        }
-
-        fseek(fp, 0, SEEK_END);
-        long size = ftell(fp);
-        printf("videos: %ld bytes\n", size);
-
-        fclose(fp);
+    else if (strcmp(cmd, "space-videos") == 0) {
+        filesize("videos", "videos");
     }
-    else if (strcmp(cmd, "space-pictures") == 0){
-        FILE *fp = fopen("pictures", "rb");
-        
-
-        if (fp == NULL){
-            perror("err: file unopened");
-            
-        }
-
-        fseek(fp, 0, SEEK_END);
-        long size = ftell(fp);
-        printf("pictures: %ld bytes\n", size);
-
-        fclose(fp);
+    else if (strcmp(cmd, "space-pictures") == 0) {
+        filesize("pictures", "pictures");
     }
-    else if (strcmp(cmd, "space-music") == 0){
-        FILE *fp = fopen("home", "rb");
-        
-
-        if (fp == NULL){
-            perror("err: file unopened");
-            
-        }
-
-        fseek(fp, 0, SEEK_END);
-        long size = ftell(fp);
-        printf("music: %ld bytes\n", size);
-
-        fclose(fp);
+    else if (strcmp(cmd, "space-music") == 0) {
+        filesize("music", "music"); 
     }
-    else if (strcmp(cmd, "space-system") == 0){
-        FILE *fp = fopen("system", "rb");
-        
-
-        if (fp == NULL){
-            perror("err: file unopened");
-            
-        }
-
-        fseek(fp, 0, SEEK_END);
-        long size = ftell(fp);
-        printf("system: %ld bytes\n", size);
-
-        fclose(fp);
+    else if (strcmp(cmd, "space-system") == 0) {
+        filesize("system", "system");
     }
-
-    else if (strcmp(cmd, "space-others") == 0){
-        char input [256];
-        printf("What file or folder(directory)? ");
-        scanf("%255s", input);
-        FILE *fp = fopen(input, "rb");
-        
-
-        if (fp == NULL){
-            perror("err: file unopened");
-            return;
-            
+    else if (strcmp(cmd, "space-others") == 0) {
+        char input[256];
+        out("Prompt out your file/directory: ");
+        if (scanf("%255s", input) == 1) {
+            filesize(input, input);
         }
-
-        fseek(fp, 0, SEEK_END);
-        long size = ftell(fp);
-        printf("%s", input);
-        printf(": %ld bytes\n", size);
-
-        fclose(fp);
     }
 
     else if (strcmp(cmd, "game1") == 0){
@@ -1226,20 +2061,20 @@ void process_system_command(char *input) {
 
         
 
-        scanf("%c", &player);
+        in("%c", &player);
 
         result = game(player, bot);
 
         if (result == -1) {
-            printf("YOU TIED! WUNDERBAR!\n");
+            out("YOU TIED! WUNDERBAR!\n");
         }
         else if (result == 0) {
-            printf("YOU WIN!\n");
+            out("YOU WIN!\n");
         }
         else { 
-            printf("YOU LOST!\n");
+            out("YOU LOST!\n");
         }
-            printf("You choose : %c and Bot choose : %c\n",player, bot);
+        out("You choose : %c and Bot choose : %c\n",player, bot);
 
     
     }
@@ -1249,137 +2084,137 @@ void process_system_command(char *input) {
         srand(time(NULL));
         int player;
         int bot;
-        scanf("%i", &player);
+        in("", &player);
         if (player == bot){
-            printf("You win! You guessed it\n");
+            out("You win! You guessed it\n");
         }
         else {
-            printf("Guess incorrect, guess again\n");
+            out("Guess incorrect, guess again\n");
         }
     }
 
     else if (strcmp(cmd, "game3") == 0){
         int input;
-        printf("Flag Capture\n");
-        printf("YOUR LOADOUT: 1. Healing Staff, 2. Sniper, 3. BHG, 4. Grenade Launcher\n");
-        printf("1 to 4 to change loadout\n");
-        printf("goal: grab the flag and put in your base\n");
-        printf("someone is attacking you\n");
-        printf("choose your weapon\n");
-        printf("he is having a sniper far away\n");
+        out("Flag Capture\n");
+        out("YOUR LOADOUT: 1. Healing Staff, 2. Sniper, 3. BHG, 4. Grenade Launcher\n");
+        out("1 to 4 to change loadout\n");
+        out("goal: grab the flag and put in your base\n");
+        out("someone is attacking you\n");
+        out("choose your weapon\n");
+        out("he is having a sniper far away\n");
 
-        scanf("%d", &input);
+        in("", &input);
         if (input == 1){
-            printf("You die because of headshot\n");
+            out("You die because of headshot\n");
         }
         else if (input == 2){
-            printf("Killed opponent, attacked 100 dmg, faced 50 dmg\n");
+            out("Killed opponent, attacked 100 dmg, faced 50 dmg\n");
 
-            printf("GO AHEAD\n");
+            out("GO AHEAD\n");
             sleep(100);
-            printf ("someone is attacking you\n");
-            printf ("he is having a shotgun\n");
-            printf("he is near\n");
-            scanf("%d", &input);
+            out ("someone is attacking you\n");
+            out ("he is having a shotgun\n");
+            out("he is near\n");
+            in("", &input);
             if (input == 1){
-                printf ("Killed opponent. Attacked 100dmg, dealt 90 damage.\n" );
-                printf("GO AHEAD\n");
+                out ("Killed opponent. Attacked 100dmg, dealt 90 damage.\n" );
+                out("GO AHEAD\n");
                 sleep(100);
-                printf("someone is attacking you\n");
-                printf ("he is having a rpg\n");
-                printf("he is far away\n");
-                scanf("%d", &input);
+                out("someone is attacking you\n");
+                out ("he is having a rpg\n");
+                out("he is far away\n");
+                in("", &input);
 
                 if (input == 1){
-                    printf("You die because of spam\n");
+                    out("You die because of spam\n");
                 }
                 else if (input == 2){
-                    printf("Killed opponent. Attacked 100dmg, dealt 90 dmg\n");
-                    printf("GRABBED FLAG!!!\n");
+                    out("Killed opponent. Attacked 100dmg, dealt 90 dmg\n");
+                    out("GRABBED FLAG!!!\n");
                     sleep(100);
-                    printf("someone is attacking you\n");
-                    printf("he is having a BHG\n");
-                    scanf("%d", &input);
+                    out("someone is attacking you\n");
+                    out("he is having a BHG\n");
+                    in("", &input);
                     if (input == 1){
-                        printf("You die because of proness\n");
+                        out("You die because of proness\n");
                     }
                     else if (input == 2){
-                        printf("Killed opponent. Attacked 100dmg, dealt 70dmg\n");
-                        printf("GOAL ACHIEVED\n");
-                        printf("sucessfully put flag to your base\n");
+                        out("Killed opponent. Attacked 100dmg, dealt 70dmg\n");
+                        out("GOAL ACHIEVED\n");
+                        out("sucessfully put flag to your base\n");
                     }
                     else if (input == 3){
-                        printf("You die because of proness\n");
+                        out("You die because of proness\n");
                     }
                     else if (input == 4){
-                        printf("You die because of proness\n");
+                        out("You die because of proness\n");
                     }
 
 
                 }
                 else if (input == 3){
-                    printf("Killed opponent. Attacked 100dmg, dealt 60dmg\n");
-                    printf("GRABBED FLAG!!!\n");
+                    out("Killed opponent. Attacked 100dmg, dealt 60dmg\n");
+                    out("GRABBED FLAG!!!\n");
                     sleep(100);
-                    printf("someone is attacking you\n");
-                    printf("he is having a BHG\n");
-                    scanf("%d", &input);
+                    out("someone is attacking you\n");
+                    out("he is having a BHG\n");
+                    in("", &input);
                     if (input == 1){
-                        printf("You die because of proness\n");
+                        out("You die because of proness\n");
                     }
                     else if (input == 2){
-                        printf("Killed opponent. Attacked 100dmg, dealt 70dmg\n");
-                        printf("GOAL ACHIEVED\n");
-                        printf("sucessfully put flag to your base\n");
+                        out("Killed opponent. Attacked 100dmg, dealt 70dmg\n");
+                        out("GOAL ACHIEVED\n");
+                        out("sucessfully put flag to your base\n");
                     }
                     else if (input == 3){
-                        printf("You die because of proness\n");
+                        out("You die because of proness\n");
                     }
                     else if (input == 4){
-                        printf("You die because of proness\n");
+                        out("You die because of proness\n");
                     }
                 }
                 else if (input == 4){
-                    printf("You die because you killed yourself in the wall\n");
+                    out("You die because you killed yourself in the wall\n");
                 }
 
             }
             else if (input == 2){
-                printf("You die because of spam\n");
+                out("You die because of spam\n");
             }
 
             else if (input == 3){
-                printf("Killed opponent. Attacked 100dmg, dealt 67 damage\n");
-                printf("GO AHEAD\n");
+                out("Killed opponent. Attacked 100dmg, dealt 67 damage\n");
+                out("GO AHEAD\n");
                 sleep(100);
-                printf("someone is attacking you\n");
-                printf ("he is having a rpg\n");
-                printf("he is far away\n");
-                scanf("%d", &input);
+                out("someone is attacking you\n");
+                out ("he is having a rpg\n");
+                out("he is far away\n");
+                in("", &input);
 
                 if (input == 1){
-                    printf("You die because of spam\n");
+                    out("You die because of spam\n");
                 }
                 else if (input == 2){
-                    printf("Killed opponent. Attacked 100dmg, dealt 90 dmg\n");
-                    printf("GRABBED FLAG!!!\n");
+                    out("Killed opponent. Attacked 100dmg, dealt 90 dmg\n");
+                    out("GRABBED FLAG!!!\n");
                     sleep(100);
-                    printf("someone is attacking you\n");
-                    printf("he is having a BHG\n");
-                    scanf("%d", &input);
+                    out("someone is attacking you\n");
+                    out("he is having a BHG\n");
+                    in("", &input);
                     if (input == 1){
-                        printf("You die because of proness\n");
+                        out("You die because of proness\n");
                     }
                     else if (input == 2){
-                        printf("Killed opponent. Attacked 100dmg, dealt 70dmg\n");
-                        printf("GOAL ACHIEVED\n");
-                        printf("sucessfully put flag to your base\n");
+                        out("Killed opponent. Attacked 100dmg, dealt 70dmg\n");
+                        out("GOAL ACHIEVED\n");
+                        out("sucessfully put flag to your base\n");
                     }
                     else if (input == 3){
-                        printf("You die because of proness\n");
+                        out("You die because of proness\n");
                     }
                     else if (input == 4){
-                        printf("You die because of proness\n");
+                        out("You die because of proness\n");
                     }
 
 
@@ -1387,51 +2222,51 @@ void process_system_command(char *input) {
             }
 
             else if (input == 4){
-                printf("You die because of spam \n");
+                out("You die because of spam \n");
             }
 
             
         }
         else if (input == 3){
-            printf ("Killed opponent, attacked 100 dmg, faced 30 dmg\n");
-            printf("GO AHEAD\n");
+            out ("Killed opponent, attacked 100 dmg, faced 30 dmg\n");
+            out("GO AHEAD\n");
             sleep(10);
-            printf ("someone is attacking you\n");
-            printf ("he is having a shotgun\n");
-            printf("he is near\n");
-            scanf("%d", &input);
+            out ("someone is attacking you\n");
+            out ("he is having a shotgun\n");
+            out("he is near\n");
+            in("", &input);
             if (input == 1){
-                printf ("Killed opponent. Attacked 100dmg, dealt 90 damage.\n" );
-                printf("GO AHEAD\n");
+                out ("Killed opponent. Attacked 100dmg, dealt 90 damage.\n" );
+                out("GO AHEAD\n");
                 sleep(10);
-                printf("someone is attacking you\n");
-                printf ("he is having a rpg\n");
-                printf("he is far away\n");
-                scanf("%d", &input);
+                out("someone is attacking you\n");
+                out ("he is having a rpg\n");
+                out("he is far away\n");
+                in("", &input);
 
                 if (input == 1){
-                    printf("You die because of spam\n");
+                    out("You die because of spam\n");
                 }
                 else if (input == 2){
-                    printf("Killed opponent. Attacked 100dmg, dealt 90 dmg\n");
-                    printf("GRABBED FLAG!!!\n");
+                    out("Killed opponent. Attacked 100dmg, dealt 90 dmg\n");
+                    out("GRABBED FLAG!!!\n");
                     sleep(10);
-                    printf("someone is attacking you\n");
-                    printf("he is having a BHG\n");
-                    scanf("%d", &input);
+                    out("someone is attacking you\n");
+                    out("he is having a BHG\n");
+                    in("", &input);
                     if (input == 1){
-                        printf("You die because of proness\n");
+                        out("You die because of proness\n");
                     }
                     else if (input == 2){
-                        printf("Killed opponent. Attacked 100dmg, dealt 70dmg\n");
-                        printf("GOAL ACHIEVED\n");
-                        printf("sucessfully put flag to your base\n");
+                        out("Killed opponent. Attacked 100dmg, dealt 70dmg\n");
+                        out("GOAL ACHIEVED\n");
+                        out("sucessfully put flag to your base\n");
                     }
                     else if (input == 3){
-                        printf("You die because of proness\n");
+                        out("You die because of proness\n");
                     }
                     else if (input == 4){
-                        printf("You die because of proness\n");
+                        out("You die because of proness\n");
                     }
 
 
@@ -1442,98 +2277,98 @@ void process_system_command(char *input) {
                     sleep(10);
                     printf("someone is attacking you\n");
                     printf("he is having a BHG\n");
-                    scanf("%d", &input);
+                    in("", &input);
                     if (input == 1){
-                        printf("You die because of proness\n");
+                        out("You die because of proness\n");
                     }
                     else if (input == 2){
-                        printf("Killed opponent. Attacked 100dmg, dealt 70dmg\n");
-                        printf("GOAL ACHIEVED\n");
-                        printf("sucessfully put flag to your base\n");
+                        out("Killed opponent. Attacked 100dmg, dealt 70dmg\n");
+                        out("GOAL ACHIEVED\n");
+                        out("sucessfully put flag to your base\n");
                     }
                     else if (input == 3){
-                        printf("You die because of proness\n");
+                        out("You die because of proness\n");
                     }
                     else if (input == 4){
-                        printf("You die because of proness\n");
+                        out("You die because of proness\n");
                     }
                 }
                 else if (input == 4){
-                    printf("You die because you killed yourself in the wall\n");
+                    out("You die because you killed yourself in the wall\n");
                 }
 
             }
         }
 
         else if (input == 4){
-            printf("Killed opponent, attacked 140 dmg, faced 50 dmg\n");
+            out("Killed opponent, attacked 140 dmg, faced 50 dmg\n");
 
-            printf("GO AHEAD\n");
+            out("GO AHEAD\n");
             sleep(100);
-            printf ("someone is attacking you\n");
-            printf ("he is having a shotgun\n");
-            printf("he is near\n");
-            scanf("%d", &input);
+            out ("someone is attacking you\n");
+            out ("he is having a shotgun\n");
+            out("he is near\n");
+            in("", &input);
             if (input == 1){
-                printf ("Killed opponent. Attacked 100dmg, dealt 90 damage.\n" );
-                printf("GO AHEAD\n");
+                out ("Killed opponent. Attacked 100dmg, dealt 90 damage.\n" );
+                out("GO AHEAD\n");
                 sleep(10);
-                printf("someone is attacking you\n");
-                printf ("he is having a rpg\n");
-                printf("he is far away\n");
-                scanf("%d", &input);
+                out("someone is attacking you\n");
+                out ("he is having a rpg\n");
+                out("he is far away\n");
+                in("", &input);
 
                 if (input == 1){
-                    printf("You die because of spam\n");
+                    out("You die because of spam\n");
                 }
                 else if (input == 2){
-                    printf("Killed opponent. Attacked 100dmg, dealt 90 dmg\n");
-                    printf("GRABBED FLAG!!!\n");
+                    out("Killed opponent. Attacked 100dmg, dealt 90 dmg\n");
+                    out("GRABBED FLAG!!!\n");
                     sleep(10);
-                    printf("someone is attacking you\n");
-                    printf("he is having a BHG\n");
-                    scanf("%d", &input);
+                    out("someone is attacking you\n");
+                    out("he is having a BHG\n");
+                    in("", &input);
                     if (input == 1){
-                        printf("You die because of proness\n");
+                        out("You die because of proness\n");
                     }
                     else if (input == 2){
-                        printf("Killed opponent. Attacked 100dmg, dealt 70dmg\n");
-                        printf("GOAL ACHIEVED\n");
-                        printf("sucessfully put flag to your base\n");
+                        out("Killed opponent. Attacked 100dmg, dealt 70dmg\n");
+                        out("GOAL ACHIEVED\n");
+                        out("sucessfully put flag to your base\n");
                     }
                     else if (input == 3){
-                        printf("You die because of proness\n");
+                        out("You die because of proness\n");
                     }
                     else if (input == 4){
-                        printf("You die because of proness\n");
+                        out("You die because of proness\n");
                     }
 
 
                 }
                 else if (input == 3){
-                    printf("Killed opponent. Attacked 100dmg, dealt 60dmg\n");
-                    printf("GRABBED FLAG!!!\n");
+                    out("Killed opponent. Attacked 100dmg, dealt 60dmg\n");
+                    out("GRABBED FLAG!!!\n");
                     sleep(10);
-                    printf("someone is attacking you\n");
-                    printf("he is having a BHG\n");
-                    scanf("%d", &input);
+                    out("someone is attacking you\n");
+                    out("he is having a BHG\n");
+                    in("", &input);
                     if (input == 1){
-                        printf("You die because of proness\n");
+                        out("You die because of proness\n");
                     }
                     else if (input == 2){
-                        printf("Killed opponent. Attacked 100dmg, dealt 70dmg\n");
-                        printf("GOAL ACHIEVED\n");
-                        printf("sucessfully put flag to your base\n");
+                        out("Killed opponent. Attacked 100dmg, dealt 70dmg\n");
+                        out("GOAL ACHIEVED\n");
+                        out("sucessfully put flag to your base\n");
                     }
                     else if (input == 3){
-                        printf("You die because of proness\n");
+                        out("You die because of proness\n");
                     }
                     else if (input == 4){
-                        printf("You die because of proness\n");
+                        out("You die because of proness\n");
                     }
                 }
                 else if (input == 4){
-                    printf("You die because you killed yourself in the wall\n");
+                    out("You die because you killed yourself in the wall\n");
                 }
 
             }
@@ -1543,115 +2378,115 @@ void process_system_command(char *input) {
 
     else if (strcmp(cmd, "game4") == 0) {
         int input;
-        printf("Gun Game\n");
-        printf("YOUR LOADOUT: 1. Knife, 2. Sniper, 3. Spamming Gun\n");
-        printf("1 to 3 to change loadout\n");
-        printf("ROUND START\n");
-        printf("The person is near to you by 1m\n");
-        printf("The person is using Rifle\n");
-        printf("Choose your weapon\n");
-        scanf("%d", &input);
+        out("Gun Game\n");
+        out("YOUR LOADOUT: 1. Knife, 2. Sniper, 3. Spamming Gun\n");
+        out("1 to 3 to change loadout\n");
+        out("ROUND START\n");
+        out("The person is near to you by 1m\n");
+        out("The person is using Rifle\n");
+        out("Choose your weapon\n");
+        in("%d", &input);
         if (input == 1){
-            printf("BACKSTAB! attacked: 100 damage, dealt 25 damage\n");
+            out("BACKSTAB! attacked: 100 damage, dealt 25 damage\n");
             sleep(5);
-            printf("ROUND 2\n");
-            printf("The person is near to you by 10m\n");
-            printf("The person is using RPG\n");
-            printf("Choose your weapon\n");
-            scanf("%d", &input);
+            out("ROUND 2\n");
+            out("The person is near to you by 10m\n");
+            out("The person is using RPG\n");
+            out("Choose your weapon\n");
+            in("", &input);
             if (input == 1){
-                printf("You lost lol!!!\n");
+                out("You lost lol!!!\n");
             }
             else if (input == 2){
-                printf("EASY HEADSHOT! attacked: 100 damage, dealt 25 damage\n");
+                out("EASY HEADSHOT! attacked: 100 damage, dealt 25 damage\n");
                 sleep(5);
-                printf("MATCH POINT\n");
-                printf("The person is near to you by 6m\n");
-                printf("The person is using Uzi\n");
-                printf("Choose your weapon\n");
-                scanf("%d", &input);
+                out("MATCH POINT\n");
+                out("The person is near to you by 6m\n");
+                out("The person is using Uzi\n");
+                out("Choose your weapon\n");
+                in("%d", &input);
                 if (input == 1){
-                    printf("You lost lol!!!\n");
+                    out("You lost lol!!!\n");
                 }
                 else if (input == 2){
-                    printf("You lost lol!!!\n");
+                    out("You lost lol!!!\n");
                 }
                 else if (input == 3){
-                    printf("EASY TAKEBACK! attacked: 100 damage, dealt 30 damage\n");
-                    printf("YOU WIN!\n");
+                    out("EASY TAKEBACK! attacked: 100 damage, dealt 30 damage\n");
+                    out("YOU WIN!\n");
                 }
             }
             else if (input == 3){
-                printf("You lost lol!!!\n");
+                out("You lost lol!!!\n");
             }
         }
         else if (input == 2){
-            printf("Killed! attacked: 100 damage, dealt 70 damage\n");
+            out("Killed! attacked: 100 damage, dealt 70 damage\n");
             
             sleep(5);
-            printf("ROUND 2\n");
-            printf("The person is near to you by 10m\n");
-            printf("The person is using RPG\n");
-            printf("Choose your weapon\n");
-            scanf("%d", &input);
+            out("ROUND 2\n");
+            out("The person is near to you by 10m\n");
+            out("The person is using RPG\n");
+            out("Choose your weapon\n");
+            in("", &input);
             if (input == 1){
-                printf("You lost lol!!!\n");
+                out("You lost lol!!!\n");
             }
             else if (input == 2){
-                printf("EASY HEADSHOT! attacked: 100 damage, dealt 25 damage\n");
+                out("EASY HEADSHOT! attacked: 100 damage, dealt 25 damage\n");
                 sleep(5);
-                printf("MATCH POINT\n");
-                printf("The person is near to you by 6m\n");
-                printf("The person is using Uzi\n");
-                printf("Choose your weapon\n");
-                scanf("%d", &input);
+                out("MATCH POINT\n");
+                out("The person is near to you by 6m\n");
+                out("The person is using Uzi\n");
+                out("Choose your weapon\n");
+                in("", &input);
                 if (input == 1){
-                    printf("You lost lol!!!\n");
+                    out("You lost lol!!!\n");
                 }
                 else if (input == 2){
-                    printf("You lost lol!!!\n");
+                    out("You lost lol!!!\n");
                 }
                 else if (input == 3){
-                    printf("EASY TAKEBACK! attacked: 100 damage, dealt 30 damage\n");
-                    printf("YOU WIN!\n");
+                    out("EASY TAKEBACK! attacked: 100 damage, dealt 30 damage\n");
+                    out("YOU WIN!\n");
                 }
             }
             else if (input == 3){
-                printf("You lost lol!!!\n");
+                out("You lost lol!!!\n");
             }
         }
         else if (input == 3){
-            printf("Killed! attacked: 100 damage, dealt 40 damage\n");
+            out("Killed! attacked: 100 damage, dealt 40 damage\n");
             sleep(5);
-            printf("ROUND 2\n");
-            printf("The person is near to you by 10m\n");
-            printf("The person is using RPG\n");
-            printf("Choose your weapon\n");
-            scanf("%d", &input);
+            out("ROUND 2\n");
+            out("The person is near to you by 10m\n");
+            out("The person is using RPG\n");
+            out("Choose your weapon\n");
+            in("", &input);
             if (input == 1){
-                printf("You lost lol!!!\n");
+                out("You lost lol!!!\n");
             }
             else if (input == 2){
-                printf("EASY HEADSHOT! attacked: 100 damage, dealt 25 damage\n");
+                out("EASY HEADSHOT! attacked: 100 damage, dealt 25 damage\n");
                 sleep(5);
-                printf("MATCH POINT\n");
-                printf("The person is near to you by 6m\n");
-                printf("The person is using Uzi\n");
-                printf("Choose your weapon\n");
-                scanf("%d", &input);
+                out("MATCH POINT\n");
+                out("The person is near to you by 6m\n");
+                out("The person is using Uzi\n");
+                out("Choose your weapon\n");
+                in("", &input);
                 if (input == 1){
-                    printf("You lost lol!!!\n");
+                    out("You lost lol!!!\n");
                 }
                 else if (input == 2){
-                    printf("You lost lol!!!\n");
+                    out("You lost lol!!!\n");
                 }
                 else if (input == 3){
-                    printf("EASY TAKEBACK! attacked: 100 damage, dealt 30 damage\n");
-                    printf("YOU WIN!\n");
+                    out("EASY TAKEBACK! attacked: 100 damage, dealt 30 damage\n");
+                    out("YOU WIN!\n");
                 }
             }
             else if (input == 3){
-                printf("You lost lol!!!\n");
+                out("You lost lol!!!\n");
             }
         }
         
@@ -1660,7 +2495,7 @@ void process_system_command(char *input) {
     else if (strcmp(cmd, "dice") == 0){
         int n = rand() % 6;
         srand(time(NULL));
-        printf ("%d\n", n);
+        out ("%d\n", n);
     }
 
     else if (strcmp(cmd, "game6") == 0) {
@@ -1669,14 +2504,14 @@ void process_system_command(char *input) {
         float delay_time = 1.0f + ((float)rand() / (float)RAND_MAX) * 2.0f;
         int input;
         usleep((useconds_t)(delay_time * 1000000));
-        printf("Number: %d\n", n);
-        scanf("%d", &input);
+        out("Number: %d\n", n);
+        in("", &input);
         if (input == n) {
-            printf("YOU WIN!\n");
-            printf("Your time reaction:%f\n", delay_time);
+            out("YOU WIN!\n");
+            out("Your time reaction:%f\n", delay_time);
         } 
         else {
-            printf("YOU LOSE!!\n");
+            out("YOU LOSE!!\n");
         }
     }
 
@@ -1684,37 +2519,37 @@ void process_system_command(char *input) {
         int n = rand() % 10;
         srand(time(NULL));
         if (n == 0){
-            printf("NO LUCK\n");
+            out("NO LUCK\n");
         }
         else if (n == 1){
-            printf("NO LUCK\n");
+            out("NO LUCK\n");
         }
         else if (n == 2){
-            printf("YOU ARE LUCKY TODAY!!!!\n");
+            out("YOU ARE LUCKY TODAY!!!!\n");
         }
         else if (n == 3){
-            printf("Somebody told you to sac the queen\n");
+            out("Somebody told you to sac the queen\n");
         }
         else if (n == 4){
-            printf("Somebody told you to sac the rook\n");
+            out("Somebody told you to sac the rook\n");
         }
         else if (n == 5){
-            printf("If you don't know how to solve a cube, twist the corner and it would automatically solve the cube\n");
+            out("If you don't know how to solve a cube, twist the corner and it would automatically solve the cube\n");
         }
         else if (n == 6){
-            printf("YOU WONT GET 100 KILLS IN FLAG WARS (U SUCK BTW)\n");
+            out("YOU WONT GET 100 KILLS IN FLAG WARS (U SUCK BTW)\n");
         }
         else if (n == 7){
-            printf("YOU WONT HAVE 4 WINSTREAK IN RIVALS TODAY\n");
+            out("YOU WONT HAVE 4 WINSTREAK IN RIVALS TODAY\n");
         }
         else if (n == 8){
-            printf("YOU WOULD GET 100 KILLS IN FLAG WARS\n");
+            out("YOU WOULD GET 100 KILLS IN FLAG WARS\n");
         }
         else if (n == 9){
-            printf("YOU WOULD HAVE 4 WINSTREAK IN RIVALS TODAY\n");
+            out("YOU WOULD HAVE 4 WINSTREAK IN RIVALS TODAY\n");
         }
         else if (n == 10){
-            printf("I use arch btw...\n");
+            out("I use arch btw...\n");
         }
     }
 
@@ -1722,158 +2557,158 @@ void process_system_command(char *input) {
         int input;
         srand(time(NULL));
         int bot = rand() % 100;
-        scanf("%d", &input);
+        in("", &input);
         if (input == bot){
-            printf("YOU LOSE. BOT's ANSWER IS SAME AS YOURS\n");
-            printf("BOT:%d\n", bot);
-            printf("BOT:%d\n", input);
+            out("YOU LOSE. BOT's ANSWER IS SAME AS YOURS\n");
+            out("BOT:%d\n", bot);
+            out("BOT:%d\n", input);
             
         }
         else{
-            printf("YOU WIN. BOT's ANSWER ISNT SAME AS YOURS\n");
-            printf("BOT:%d\n", bot);
-            printf("YOU:%d\n", input);
+            out("YOU WIN. BOT's ANSWER ISNT SAME AS YOURS\n");
+            out("BOT:%d\n", bot);
+            out("YOU:%d\n", input);
             
         }
     }
 
     else if (strcmp(cmd, "game7") == 0){
         int input;
-        printf("You are a country\n");
-        printf("You want to start a war\n");
-        printf("There are other countries surrounding you\n");
-        printf("Your strenght: 100\n");
-        printf("Other countries: \n");
-        printf("Country 1: 70 strenght, Country 2: 400 strenght, Country 3: 342 strenght, Country 4: 34 strenght, Country 5: 343 strenght, Country 6: 101 strenght\n");
-        printf("Which one do you choose? ");
-        scanf("%d", &input);
+        out("You are a country\n");
+        out("You want to start a war\n");
+        out("There are other countries surrounding you\n");
+        out("Your strenght: 100\n");
+        out("Other countries: \n");
+        out("Country 1: 70 strenght, Country 2: 400 strenght, Country 3: 342 strenght, Country 4: 34 strenght, Country 5: 343 strenght, Country 6: 101 strenght\n");
+        out("Which one do you choose? ");
+        in("", &input);
         if (input == 1){
-            printf("YOU FIGHT WITH THEM!!! AND YOU GAINED TERRITORY\n");
-            printf("YOUR STRENGHT: 120\n");
-            printf("There are other countries surrounding you\n");
-            printf("Your strenght: 100\n");
-            printf("Other countries: \n");
-            printf("Country 2: 400 strenght, Country 3: 342 strenght, Country 5: 343 strenght, Country 6: 101 strenght\n");
-            printf("Which one do you choose? ");
-            scanf("%d", &input);
+            out("YOU FIGHT WITH THEM!!! AND YOU GAINED TERRITORY\n");
+            out("YOUR STRENGHT: 120\n");
+            out("There are other countries surrounding you\n");
+            out("Your strenght: 100\n");
+            out("Other countries: \n");
+            out("Country 2: 400 strenght, Country 3: 342 strenght, Country 5: 343 strenght, Country 6: 101 strenght\n");
+            out("Which one do you choose? ");
+            in("", &input);
             if (input == 2){
-                printf("YOU FIGHT WITH THEM!!! AND YOU DIED AND GET CONQUERED\n");
+                out("YOU FIGHT WITH THEM!!! AND YOU DIED AND GET CONQUERED\n");
             }
             else if (input == 3){
-                printf("YOU FIGHT WITH THEM!!! AND YOU DIED AND GET CONQUERED\n");
+                out("YOU FIGHT WITH THEM!!! AND YOU DIED AND GET CONQUERED\n");
             }
             else if (input == 5){
-                printf("YOU FIGHT WITH THEM!!! AND YOU DIED AND GET CONQUERED\n");
+                out("YOU FIGHT WITH THEM!!! AND YOU DIED AND GET CONQUERED\n");
             }
             else if (input == 6){
-                printf("YOU FIGHT WITH THEM!!! AND YOU GAINED TERRITORY\n");
-                printf("YOUR STRENGHT: 350\n");
-                printf("There are other countries surrounding you\n");
+                out("YOU FIGHT WITH THEM!!! AND YOU GAINED TERRITORY\n");
+                out("YOUR STRENGHT: 350\n");
+                out("There are other countries surrounding you\n");
   
-                printf("Other countries: \n");
-                printf("Country 2: 400 strenght, Country 3: 342 strenght, Country 5: 343 strenght\n");
-                printf("Which one do you choose? ");
-                scanf("%d", &input);
+                out("Other countries: \n");
+                out("Country 2: 400 strenght, Country 3: 342 strenght, Country 5: 343 strenght\n");
+                out("Which one do you choose? ");
+                in("", &input);
                 if (input == 2){
-                    printf("YOU FIGHT WITH THEM!!! AND YOU DIED AND GET CONQUERED\n");
+                    out("YOU FIGHT WITH THEM!!! AND YOU DIED AND GET CONQUERED\n");
                 }
                 else if (input == 3){
-                    printf("YOU FIGHT WITH THEM!!! AND YOU GAINED TERRITORY\n");
-                    printf("YOUR STRENGHT: 500\n");
-                    printf("There is only one country surrounding you\n");
+                    out("YOU FIGHT WITH THEM!!! AND YOU GAINED TERRITORY\n");
+                    out("YOUR STRENGHT: 500\n");
+                    out("There is only one country surrounding you\n");
                     
-                    printf("Other countries: \n");
-                    printf("Country 2: 400 strenght\n");
-                    printf("Which one do you choose? ");
-                    scanf("%d", &input);
+                    out("Other countries: \n");
+                    out("Country 2: 400 strenght\n");
+                    out("Which one do you choose? ");
+                    in("", &input);
                 }
                 else if (input == 5){
-                    printf("YOU FIGHT WITH THEM!!! AND YOU GAINED TERRITORY\n");
-                    printf("YOUR STRENGHT: 499\n");
-                    printf("There is only one country surrounding you\n");
+                    out("YOU FIGHT WITH THEM!!! AND YOU GAINED TERRITORY\n");
+                    out("YOUR STRENGHT: 499\n");
+                    out("There is only one country surrounding you\n");
                     
-                    printf("Other countries: \n");
-                    printf("Country 2: 400 strenght, Country 3: 342 strenght, Country 5: 343 strenght\n");
-                    printf("Which one do you choose? ");
-                    scanf("%d", &input);
+                    out("Other countries: \n");
+                    out("Country 2: 400 strenght, Country 3: 342 strenght, Country 5: 343 strenght\n");
+                    out("Which one do you choose? ");
+                    in("", &input);
                     if (input == 2){
-                        printf("YOU FIGHT WITH THEM!!! AND YOU GAINED TERRITORY\n");
-                        printf("YOU WIN!!\n");
+                        out("YOU FIGHT WITH THEM!!! AND YOU GAINED TERRITORY\n");
+                        out("YOU WIN!!\n");
                     }
                 }
             }
         }
         else if (input == 2){
-            printf("YOU FIGHT WITH THEM!!! AND YOU DIED AND GET CONQUERED\n");
+            out("YOU FIGHT WITH THEM!!! AND YOU DIED AND GET CONQUERED\n");
         }
         else if (input == 3){
-            printf("YOU FIGHT WITH THEM!!! AND YOU DIED AND GET CONQUERED\n");
+            out("YOU FIGHT WITH THEM!!! AND YOU DIED AND GET CONQUERED\n");
         }
         else if (input == 4){
-            printf("YOU FIGHT WITH THEM!!! AND YOU GAINED TERRITORY\n");
-            printf("YOUR STRENGHT: 110\n");
-            printf("There are other countries surrounding you\n");
+            out("YOU FIGHT WITH THEM!!! AND YOU GAINED TERRITORY\n");
+            out("YOUR STRENGHT: 110\n");
+            out("There are other countries surrounding you\n");
      
-            printf("Other countries: \n");
-            printf("Country 2: 400 strenght, Country 3: 342 strenght, Country 5: 343 strenght, Country 6: 101 strenght\n");
-            printf("Which one do you choose? ");
-            scanf("%d", &input);
+            out("Other countries: \n");
+            out("Country 2: 400 strenght, Country 3: 342 strenght, Country 5: 343 strenght, Country 6: 101 strenght\n");
+            out("Which one do you choose? ");
+            in("%d", &input);
             if (input == 2){
-                printf("YOU FIGHT WITH THEM!!! AND YOU DIED AND GET CONQUERED\n");
+                out("YOU FIGHT WITH THEM!!! AND YOU DIED AND GET CONQUERED\n");
             }
             else if (input == 3){
-                printf("YOU FIGHT WITH THEM!!! AND YOU DIED AND GET CONQUERED\n");
+                out("YOU FIGHT WITH THEM!!! AND YOU DIED AND GET CONQUERED\n");
             }
             else if (input == 5){
-                printf("YOU FIGHT WITH THEM!!! AND YOU DIED AND GET CONQUERED\n");
+                out("YOU FIGHT WITH THEM!!! AND YOU DIED AND GET CONQUERED\n");
             }
             else if (input == 6){
-                printf("YOU FIGHT WITH THEM!!! AND YOU GAINED TERRITORY\n");
-                printf("YOUR STRENGHT: 350\n");
-                printf("There are other countries surrounding you\n");
+                out("YOU FIGHT WITH THEM!!! AND YOU GAINED TERRITORY\n");
+                out("YOUR STRENGHT: 350\n");
+                out("There are other countries surrounding you\n");
   
-                printf("Other countries: \n");
-                printf("Country 2: 400 strenght, Country 3: 342 strenght, Country 5: 343 strenght\n");
-                printf("Which one do you choose? ");
-                scanf("%d", &input);
+                out("Other countries: \n");
+                out("Country 2: 400 strenght, Country 3: 342 strenght, Country 5: 343 strenght\n");
+                out("Which one do you choose? ");
+                in("", &input);
                 if (input == 2){
-                    printf("YOU FIGHT WITH THEM!!! AND YOU DIED AND GET CONQUERED\n");
+                    out("YOU FIGHT WITH THEM!!! AND YOU DIED AND GET CONQUERED\n");
                 }
                 else if (input == 3){
-                    printf("YOU FIGHT WITH THEM!!! AND YOU GAINED TERRITORY\n");
-                    printf("YOUR STRENGHT: 500\n");
-                    printf("There is only one country surrounding you\n");
+                    out("YOU FIGHT WITH THEM!!! AND YOU GAINED TERRITORY\n");
+                    out("YOUR STRENGHT: 500\n");
+                    out("There is only one country surrounding you\n");
                     
-                    printf("Other countries: \n");
-                    printf("Country 2: 400 strenght\n");
-                    printf("Which one do you choose? ");
-                    scanf("%d", &input);
+                    out("Other countries: \n");
+                    out("Country 2: 400 strenght\n");
+                    out("Which one do you choose? ");
+                    in("", &input);
                 }
                 else if (input == 5){
-                    printf("YOU FIGHT WITH THEM!!! AND YOU GAINED TERRITORY\n");
-                    printf("YOUR STRENGHT: 499\n");
-                    printf("There is only one country surrounding you\n");
+                    out("YOU FIGHT WITH THEM!!! AND YOU GAINED TERRITORY\n");
+                    out("YOUR STRENGHT: 499\n");
+                    out("There is only one country surrounding you\n");
                     
-                    printf("Other countries: \n");
-                    printf("Country 2: 400 strenght, Country 3: 342 strenght, Country 5: 343 strenght\n");
-                    printf("Which one do you choose? ");
-                    scanf("%d", &input);
+                    out("Other countries: \n");
+                    out("Country 2: 400 strenght, Country 3: 342 strenght, Country 5: 343 strenght\n");
+                    out("Which one do you choose? ");
+                    in("", &input);
                     if (input == 2){
-                        printf("YOU FIGHT WITH THEM!!! AND YOU GAINED TERRITORY\n");
-                        printf("YOU WIN!!\n");
+                        out("YOU FIGHT WITH THEM!!! AND YOU GAINED TERRITORY\n");
+                        out("YOU WIN!!\n");
                     }
                 }
             }
         }
         else if (input == 5){
-            printf("YOU FIGHT WITH THEM!!! AND YOU DIED AND GET CONQUERED\n");
+            out("YOU FIGHT WITH THEM!!! AND YOU DIED AND GET CONQUERED\n");
         }
         else if (input == 6){
-            printf("YOU FIGHT WITH THEM!!! AND YOU DIED AND GET CONQUERED\n");
+            out("YOU FIGHT WITH THEM!!! AND YOU DIED AND GET CONQUERED\n");
             
         }
         else {
-            printf("Invalid input, so the guard kick you out\n");
+            out("Invalid input, so the guard kick you out\n");
         }
 
     }
@@ -1882,132 +2717,132 @@ void process_system_command(char *input) {
     else if (strcmp(cmd, "elements") == 0){
         srand(time(NULL));
         int n = rand() % 119;
-        if (n == 1){printf("Hydrogen");}
-        else if (n == 2){printf("Helium");}
-        else if (n == 3){printf("Lithium");}
-        else if (n == 4){printf("Beryllium");}
-        else if (n == 5){printf("Boron");}
-        else if (n == 6){printf("Carbon");}
-        else if (n == 7){printf("Nitrogen");}
-        else if (n == 8){printf("Oxygen");}
-        else if (n == 9){printf("Fluorine");}
-        else if (n == 10){printf("Neon");}
-        else if (n == 11){printf("Sodium");}
-        else if (n == 12){printf("Magnesium");}
-        else if (n == 13){printf("Aluminium");}
-        else if (n == 14){printf("Silicon");}
-        else if (n == 15){printf("Phosphorus");}
-        else if (n == 16){printf("Sulfur");}
-        else if (n == 17){printf("Chlorine");}
-        else if (n == 18){printf("Argon");}
-        else if (n == 19){printf("Potassium");}
-        else if (n == 20){printf("Calcium");}
-        else if (n == 21){printf("Scandium");}
-        else if (n == 22){printf("Titanium");}
-        else if (n == 23){printf("Vanadium");}
-        else if (n == 24){printf("Chromium");}
-        else if (n == 25){printf("Manganese");}
-        else if (n == 26){printf("Iron");}
-        else if (n == 27){printf("Cobalt");}
-        else if (n == 28){printf("Nickel");}
-        else if (n == 29){printf("Copper");}
-        else if (n == 30){printf("Zinc");}
-        else if (n == 31){printf("Gallium");}
-        else if (n == 32){printf("Germanium");}
-        else if (n == 33){printf("Arsenic");}
-        else if (n == 34){printf("Selenium");}
-        else if (n == 35){printf("Bromine");}
-        else if (n == 36){printf("Krypton");}
-        else if (n == 37){printf("Rubidium");}
-        else if (n == 38){printf("Strontium");}
-        else if (n == 39){printf("Yttrium");}
-        else if (n == 40){printf("Zirconium");}
-        else if (n == 41){printf("Niobidium");}
-        else if (n == 42){printf("Molybdenum");}
-        else if (n == 43){printf("Technetium");}
-        else if (n == 44){printf("Rutbenium");}
-        else if (n == 45){printf("Rhodium");}
-        else if (n == 46){printf("Palladium");}
-        else if (n == 47){printf("Silver");}
-        else if (n == 48){printf("Cadmium");}
-        else if (n == 49){printf("Indium");}
-        else if (n == 50){printf("Tin");}
-        else if (n == 51){printf("Antimony");}
-        else if (n == 52){printf("Tellurium");}
-        else if (n == 53){printf("Iodine");}
-        else if (n == 54){printf("Xenon");}
-        else if (n == 55){printf("Caesium");}
-        else if (n == 56){printf("Barium");}
-        else if (n == 57){printf("Lanthanium");}
-        else if (n == 58){printf("Cerium");}
-        else if (n == 59){printf("Praseodynium");}
-        else if (n == 60){printf("Neodynium");}
-        else if (n == 61){printf("Promethium");}
-        else if (n == 62){printf("Samarium");}
-        else if (n == 63){printf("Europium");}
-        else if (n == 64){printf("Gadolinium");}
-        else if (n == 65){printf("Terbium");}
-        else if (n == 66){printf("Dysprosium");}
-        else if (n == 67){printf("Holonium");}
-        else if (n == 68){printf("Erbium");}
-        else if (n == 69){printf("Thulium");}
-        else if (n == 70){printf("Yttbium");}
-        else if (n == 71){printf("Lutetium");}
-        else if (n == 72){printf("Hafnium");}
-        else if (n == 73){printf("Tantalum");}
-        else if (n == 74){printf("Tungsten");}
-        else if (n == 75){printf("Rhenium");}
-        else if (n == 76){printf("Osmium");}
-        else if (n == 77){printf("Iridium");}
-        else if (n == 78){printf("Platinium");}
-        else if (n == 79){printf("Gold");}
-        else if (n == 80){printf("Mercury");}
-        else if (n == 81){printf("Thallium");}
-        else if (n == 82){printf("Lead");}
-        else if (n == 83){printf("Bismuth");}
-        else if (n == 84){printf("Polonium");}
-        else if (n == 85){printf("Astatine");}
-        else if (n == 86){printf("Radon");}
-        else if (n == 87){printf("Francium");}
-        else if (n == 88){printf("Radium");}
-        else if (n == 89){printf("Actinium");}
-        else if (n == 90){printf("Thorium");}
-        else if (n == 91){printf("Protactinium");}
-        else if (n == 92){printf("Uranium");}
-        else if (n == 93){printf("Neptunium");}
-        else if (n == 94){printf("Plutonium");}
-        else if (n == 95){printf("Americium");}
-        else if (n == 96){printf("Curinum");}
-        else if (n == 97){printf("Berkelium");}
-        else if (n == 98){printf("Californium");}
-        else if (n == 99){printf("Einsteinium");}
-        else if (n == 100){printf("Fermium");}
-        else if (n == 101){printf("Mendelevium");}
-        else if (n == 102){printf("Nobelium");}
-        else if (n == 103){printf("Lawrencium");}
-        else if (n == 104){printf("Rutherforium");}
-        else if (n == 105){printf("Dubnium");}
-        else if (n == 106){printf("Seaborgium");}
-        else if (n == 107){printf("Seaborgium");}
-        else if (n == 108){printf("Hassium");}
-        else if (n == 109){printf("Meitnerium");}
-        else if (n == 110){printf("Damstadtium");}
-        else if (n == 111){printf("Roentgenium");}
-        else if (n == 112){printf("Copemicium");}
-        else if (n == 113){printf("Nihonium");}
-        else if (n == 114){printf("Flerovium");}
-        else if (n == 115){printf("Moscovium");}
-        else if (n == 116){printf("Livermorium");}
-        else if (n == 117){printf("Tenessine");}
-        else if (n == 118){printf("Oganesson");}
+        if (n == 1){out("Hydrogen");}
+        else if (n == 2){out("Helium");}
+        else if (n == 3){out("Lithium");}
+        else if (n == 4){out("Beryllium");}
+        else if (n == 5){out("Boron");}
+        else if (n == 6){out("Carbon");}
+        else if (n == 7){out("Nitrogen");}
+        else if (n == 8){out("Oxygen");}
+        else if (n == 9){out("Fluorine");}
+        else if (n == 10){out("Neon");}
+        else if (n == 11){out("Sodium");}
+        else if (n == 12){out("Magnesium");}
+        else if (n == 13){out("Aluminium");}
+        else if (n == 14){out("Silicon");}
+        else if (n == 15){out("Phosphorus");}
+        else if (n == 16){out("Sulfur");}
+        else if (n == 17){out("Chlorine");}
+        else if (n == 18){out("Argon");}
+        else if (n == 19){out("Potassium");}
+        else if (n == 20){out("Calcium");}
+        else if (n == 21){out("Scandium");}
+        else if (n == 22){out("Titanium");}
+        else if (n == 23){out("Vanadium");}
+        else if (n == 24){out("Chromium");}
+        else if (n == 25){out("Manganese");}
+        else if (n == 26){out("Iron");}
+        else if (n == 27){out("Cobalt");}
+        else if (n == 28){out("Nickel");}
+        else if (n == 29){out("Copper");}
+        else if (n == 30){out("Zinc");}
+        else if (n == 31){out("Gallium");}
+        else if (n == 32){out("Germanium");}
+        else if (n == 33){out("Arsenic");}
+        else if (n == 34){out("Selenium");}
+        else if (n == 35){out("Bromine");}
+        else if (n == 36){out("Krypton");}
+        else if (n == 37){out("Rubidium");}
+        else if (n == 38){out("Strontium");}
+        else if (n == 39){out("Yttrium");}
+        else if (n == 40){out("Zirconium");}
+        else if (n == 41){out("Niobidium");}
+        else if (n == 42){out("Molybdenum");}
+        else if (n == 43){out("Technetium");}
+        else if (n == 44){out("Rutbenium");}
+        else if (n == 45){out("Rhodium");}
+        else if (n == 46){out("Palladium");}
+        else if (n == 47){out("Silver");}
+        else if (n == 48){out("Cadmium");}
+        else if (n == 49){out("Indium");}
+        else if (n == 50){out("Tin");}
+        else if (n == 51){out("Antimony");}
+        else if (n == 52){out("Tellurium");}
+        else if (n == 53){out("Iodine");}
+        else if (n == 54){out("Xenon");}
+        else if (n == 55){out("Caesium");}
+        else if (n == 56){out("Barium");}
+        else if (n == 57){out("Lanthanium");}
+        else if (n == 58){out("Cerium");}
+        else if (n == 59){out("Praseodynium");}
+        else if (n == 60){out("Neodynium");}
+        else if (n == 61){out("Promethium");}
+        else if (n == 62){out("Samarium");}
+        else if (n == 63){out("Europium");}
+        else if (n == 64){out("Gadolinium");}
+        else if (n == 65){out("Terbium");}
+        else if (n == 66){out("Dysprosium");}
+        else if (n == 67){out("Holonium");}
+        else if (n == 68){out("Erbium");}
+        else if (n == 69){out("Thulium");}
+        else if (n == 70){out("Yttbium");}
+        else if (n == 71){out("Lutetium");}
+        else if (n == 72){out("Hafnium");}
+        else if (n == 73){out("Tantalum");}
+        else if (n == 74){out("Tungsten");}
+        else if (n == 75){out("Rhenium");}
+        else if (n == 76){out("Osmium");}
+        else if (n == 77){out("Iridium");}
+        else if (n == 78){out("Platinium");}
+        else if (n == 79){out("Gold");}
+        else if (n == 80){out("Mercury");}
+        else if (n == 81){out("Thallium");}
+        else if (n == 82){out("Lead");}
+        else if (n == 83){out("Bismuth");}
+        else if (n == 84){out("Polonium");}
+        else if (n == 85){out("Astatine");}
+        else if (n == 86){out("Radon");}
+        else if (n == 87){out("Francium");}
+        else if (n == 88){out("Radium");}
+        else if (n == 89){out("Actinium");}
+        else if (n == 90){out("Thorium");}
+        else if (n == 91){out("Protactinium");}
+        else if (n == 92){out("Uranium");}
+        else if (n == 93){out("Neptunium");}
+        else if (n == 94){out("Plutonium");}
+        else if (n == 95){out("Americium");}
+        else if (n == 96){out("Curinum");}
+        else if (n == 97){out("Berkelium");}
+        else if (n == 98){out("Californium");}
+        else if (n == 99){out("Einsteinium");}
+        else if (n == 100){out("Fermium");}
+        else if (n == 101){out("Mendelevium");}
+        else if (n == 102){out("Nobelium");}
+        else if (n == 103){out("Lawrencium");}
+        else if (n == 104){out("Rutherforium");}
+        else if (n == 105){out("Dubnium");}
+        else if (n == 106){out("Seaborgium");}
+        else if (n == 107){out("Seaborgium");}
+        else if (n == 108){out("Hassium");}
+        else if (n == 109){out("Meitnerium");}
+        else if (n == 110){out("Damstadtium");}
+        else if (n == 111){out("Roentgenium");}
+        else if (n == 112){out("Copemicium");}
+        else if (n == 113){out("Nihonium");}
+        else if (n == 114){out("Flerovium");}
+        else if (n == 115){out("Moscovium");}
+        else if (n == 116){out("Livermorium");}
+        else if (n == 117){out("Tenessine");}
+        else if (n == 118){out("Oganesson");}
 
-        printf("\n");
+        out("\n");
     }
 
     else if (strcmp(cmd, "bool") == 0){
         srand(time(NULL));
         int n = rand() % 2;
-        printf("%d\n", n);
+        out("%d\n", n);
     }
 
     else if (strcmp(cmd, "image") == 0) { 
@@ -2017,10 +2852,10 @@ void process_system_command(char *input) {
         char input[128]; 
         int width, height, pixel;
     
-        printf("Type what file do you want to show in ASCII?\n");
+        out("Type what file do you want to show in ASCII?\n");
     
         if (scanf("%127s", input) != 1) {
-            printf("err: input failed to read\n");
+            out("errcode 17 : input failed to read\n");
             return; 
         }
         
@@ -2054,7 +2889,7 @@ void process_system_command(char *input) {
             stbi_image_free(ImageData);
     
         } else {
-            printf("err: image loading failed, %s\n", stbi_failure_reason());
+            out("errcode 18 : image loading failed, %s\n", stbi_failure_reason());
         }
     }
 
@@ -2105,12 +2940,12 @@ void process_system_command(char *input) {
         }
 
         for (int i = 0; i < target; i++){
-            printf("%s", lines[i]);
+            out("%s", lines[i]);
             if(i < target - 1){
-                printf(" ");
+                out(" ");
             }
         }
-        printf("\n");
+        out("\n");
 
         for (int i = 0; i < count; i++){
             free(lines[i]);
@@ -2166,12 +3001,154 @@ void process_system_command(char *input) {
         }
 
         for (int i = 0; i < target; i++){
-            printf("%s", lines[i]);
+            out("%s", lines[i]);
             if(i < target - 1){
-                printf(" ");
+                out(" ");
             }
         }
-        printf("\n");
+        out("\n");
+
+        for (int i = 0; i < count; i++){
+            free(lines[i]);
+        }
+
+        free(lines);
+    }
+
+    else if (strcmp(cmd, "talktoseal-human") == 0) {
+
+        char input [128];
+
+        out("What do you want to express to Seal ? ");
+
+        in ("", input);
+
+        out("Seal's Expression: ");
+
+
+        FILE *fptr = fopen("./text.text", "r");
+        if (!fptr) {
+            return ;
+        }
+
+        char **lines = (char **)malloc(MAX * sizeof(char *));
+        int count = 0;
+        char buffer[MAX];
+
+        while(fgets(buffer, sizeof(buffer), fptr) && count < MAX){
+            buffer[strcspn(buffer, "\n")] = '\0';
+            lines[count] = strdup(buffer);
+            count++;
+        }
+        fclose(fptr);
+        
+
+        if (count == 0){
+            free(lines);
+            return;
+        }
+
+        unsigned int seed;
+        FILE *urandom = fopen("/dev/urandom", "r");
+
+        if (urandom){
+            if (fread(&seed, sizeof(seed), 1, urandom) != 1){
+                seed = time(NULL);
+            }
+            fclose(urandom);
+        }
+        else{
+            seed = time(NULL);
+        }
+        srand(seed);
+
+        int target = (count < 32) ? count : 32;
+
+        for (int i = 0; i < target; i++){
+            int j = i + rand() % (count - i);
+            char *temp = lines[i];
+            lines[i] = lines[j];
+            lines[j] = temp;
+        }
+
+        for (int i = 0; i < target; i++){
+            out("%s", lines[i]);
+            if(i < target - 1){
+                out(" ");
+            }
+        }
+        out("\n");
+
+        for (int i = 0; i < count; i++){
+            free(lines[i]);
+        }
+
+        free(lines);
+    }
+
+    else if (strcmp(cmd, "talktoseal") == 0) {
+
+        char input [128];
+
+        out("What do you want to express to Seal ?");
+
+        in ("", input);
+
+        out("Seal's Expression: ");
+
+
+        FILE *fptr = fopen("./seal.text", "r");
+        if (!fptr) {
+            return ;
+        }
+
+        char **lines = (char **)malloc(MAX * sizeof(char *));
+        int count = 0;
+        char buffer[MAX];
+
+        while(fgets(buffer, sizeof(buffer), fptr) && count < MAX){
+            buffer[strcspn(buffer, "\n")] = '\0';
+            lines[count] = strdup(buffer);
+            count++;
+        }
+        fclose(fptr);
+        
+
+        if (count == 0){
+            free(lines);
+            return;
+        }
+
+        unsigned int seed;
+        FILE *urandom = fopen("/dev/urandom", "r");
+
+        if (urandom){
+            if (fread(&seed, sizeof(seed), 1, urandom) != 1){
+                seed = time(NULL);
+            }
+            fclose(urandom);
+        }
+        else{
+            seed = time(NULL);
+        }
+        srand(seed);
+
+        int target = (count < 32) ? count : 32;
+
+        for (int i = 0; i < target; i++){
+            int j = i + rand() % (count - i);
+            char *temp = lines[i];
+            lines[i] = lines[j];
+            lines[j] = temp;
+        }
+
+        for (int i = 0; i < target; i++){
+            out("%s", lines[i]);
+            if(i < target - 1){
+                out(" ");
+            }
+        }
+        out("\n");
 
         for (int i = 0; i < count; i++){
             free(lines[i]);
@@ -2227,12 +3204,12 @@ void process_system_command(char *input) {
         }
 
         for (int i = 0; i < target; i++){
-            printf("%s", lines[i]);
+            out("%s", lines[i]);
             if(i < target - 1){
-                printf(" ");
+                out(" ");
             }
         }
-        printf("\n");
+        out("\n");
 
         for (int i = 0; i < count; i++){
             free(lines[i]);
@@ -2242,11 +3219,11 @@ void process_system_command(char *input) {
     }
 
     else if (strcmp(cmd, "users") == 0) {
-        printf("What user do you want to create and go into?\n");
+        out("What user do you want to create and go into?\n");
         if(scanf("%127s", users) == 1){
-            printf("you are now logged in as %s\n", users);
+            out("you are now logged in as %s\n", users);
         }
-        else{printf("err: user input failed\n");}
+        else{out("errcode 19 : user input failed\n");}
     }
 
     else if (strcmp(cmd, "users-seal") == 0) {
@@ -2254,28 +3231,28 @@ void process_system_command(char *input) {
     }
 
     else if (strcmp(cmd, "whoami") == 0) {
-        printf("%s\n", users);
+        out("%s\n", users);
     }
 
     else if (strcmp(cmd, "available") == 0){
-        printf("root, ");
-        printf("seal, ");
+        out("root, ");
+        out("seal, ");
         if (strcmp(users, "seal") == 0){
-            printf("\n");
+            out("\n");
         }
         else{
-            printf("%s \n", users);
+            out("%s \n", users);
         }
     }
 
     else if (strcmp(cmd, "available-t") == 0){
-        printf("root - sudo power\n");
-        printf("seal - sudo power\n");
+        out("root - sudo power\n");
+        out("seal - sudo power\n");
         if (strcmp(users, "seal") == 0){
-            printf("\n");
+            out("\n");
         }
         else{
-            printf("%s - normal user\n", users);
+            out("%s - normal user\n", users);
         }
     }
 
@@ -2283,10 +3260,10 @@ void process_system_command(char *input) {
     else if (strcmp(cmd, "comp") == 0){
         char input[256];
         char output[256];
-        printf("What file you want to compress? ");
-        scanf("%255s", input);
-        printf("What file do you want to compressed file go to (need to type .rle)? ");
-        scanf("%255s", output);
+        out("What file you want to compress? ");
+        in("", input);
+        out("What file do you want to compressed file go to (need to type .rle)? ");
+        out("", output);
         compressor(input, output);
     }
     else if (strcmp(cmd, "decomp") == 0)
@@ -2294,49 +3271,557 @@ void process_system_command(char *input) {
         
         char input[256];
         char output[256];
-        printf("What file you want to decompress (need to type .rle)? ");
-        scanf("%255s", input);
-        printf("What file do you want to decompressed file go to? ");
-        scanf("%255s", output);
+        out("What file you want to decompress (need to type .rle)? ");
+        in("", input);
+        out("What file do you want to decompressed file go to? ");
+        in("", output);
         decompress(input, output);
     }
 
     else if (strcmp(cmd, "pkgmgr") == 0) {
-        char subcmd[16] = {0};
+        char maincmd[32] = {0};
+        char subcmd[32] = {0};
         char target[512] = {0};
+    
 
-        if (sscanf(arg2, "%s %s", subcmd, target) < 2) {
+        int count = sscanf(input, "%31s %31s %511s", maincmd, subcmd, target);
+    
+        
+        if (strcmp(subcmd, "add") == 0) {
+            #ifdef _WIN32
+                char command[600];
+                snprintf(command, sizeof(command), "curl -O \"%s\"", target);
+                int status = system(command);
+            #else
+                char command[600];
+                snprintf(command, sizeof(command), "curl -sLO \"%s\"", target);
+                int status = system(command);
+            #endif
+    
+            if (status == 0) {
+            } else {
+                out("errcode 20: internet connection lost (prob)\n");
+            }
+        } 
+
+        else if (strcmp(subcmd, "clone") == 0) {
+            
+            char command[600];
+            snprintf(command, sizeof(command), "git clone \"%s\"", target);
+            
+            int status = system(command);
+            if (status == 0) {
+            } else {
+                out("errcode 21: git clone failed\n");
+            }
+        } 
+    
+        else if (strcmp(subcmd, "build") == 0) {
+            
+            char command[700];
+            snprintf(command, sizeof(command), 
+                     "cd \"%s\" && mkdir -p build && cd build && cmake .. && cmake --build .", target);
+            
+            int status = system(command);
+            if (status == 0) {
+                
+            } else {
+                out("errcode 22: cmake not installed or have problem\n");
+            }
+        } 
+    }
+
+    else if (strcmp(cmd, "browser") == 0) {
+        char url[128];
+        char command[256];
+    
+        out("What website do you want to go to? ");
+        fflush(stdout); 
+    
+        if (scanf("%127s", url) != 1) {
             return;
         }
 
-        if (strcmp(subcmd, "0") == 0) {
-            pkgdownload(target);
-        } 
-
-        else if (strcmp(subcmd, "1") == 0) {
-            char command[600];
-            snprintf(command, sizeof(command), "git clone \"%s\"", target);
-            printf("installing your github repository\n");
-            system(command);
-        } 
-        else if (strcmp(subcmd, "2") == 0) {
-            char command[600];
-            snprintf(command, sizeof(command), "cd %s && mkdir -p build && cd build && cmake .. && cmake --build . --target fastfetch", target);
-            system(command);
-        } 
+        snprintf(command, sizeof(command), "curl -s -L '%s' | sed 's/<[^>]*>//g'", url);
     
-        return;
+        FILE *fp = popen(command, "r");
+        if (!fp) {
+            perror("errcode 23 : failed to run curl");
+            return;
+        }
+    
+        char buffer[256];
+        while (fgets(buffer, sizeof(buffer), fp) != NULL) {
+            printf("%s", buffer);
+        }
+    
+        pclose(fp);
     }
+
+    else if (strcmp(cmd, "clear") == 0){
+        out("\033[H\033[J");
+    }
+
+    else if (strcmp(cmd, "game8") == 0){
+        srand(time(NULL));
+        int guess = rand() % 15;
+        char answer [128];
+        out("Guess the Lamp\n");
+        if (guess == 1){
+            out("It is made by schreder, contains lots of types but mainly uses SON/HPS. Finally, it is the highest watts inside one if the most popular schreder lamps. ");
+            in("", answer);
+            if (strcmp(answer, "Schreder_Z3")== 0){
+                out("Correct!!!\n");
+            }
+            else{
+                out("try again bro\n");
+            }
+        }
+
+        else if (guess == 2){
+            out("Made by Thorn and I am the version 8 of a series");
+            in("", answer);
+            if (strcmp(answer, "Thorn_Alpha_8")== 0){
+                out("Correct!!!\n");
+            }
+            else{
+                out("try again bro\n");
+            }
+        }
+
+        else if (guess == 3){
+            out("Structure similar to Thorn Alpha 8, made by Philips. ");
+            in("", answer);
+            if (strcmp(answer, "SGS_304")== 0){
+                out("Correct!!!\n");
+            }
+
+            else{
+                out("try again bro\n");
+            }
+        }
+
+        else if (guess == 4){
+            out("Another Schreder big hit and it is in Federal Highway. ");
+            in("", answer);
+
+            if (strcmp(answer, "Schreder_DZ60")== 0){
+                out("Correct!!!\n");
+            }
+
+            else{
+                out("try again bro\n");
+            }
+        }
+
+        else if (guess == 5){
+            out("Schreder's big hit but instead of the highest watts it has the lowest watts. ");
+            in("", answer);
+            if (strcmp(answer, "Schreder_Z1") == 0){
+                out("Correct!!!\n");
+            }
+
+            else{
+                out("try again bro\n");
+            }
+        }
+
+        else if (guess == 6){
+            out("Similar to schreder z2 but it has lower watts than z2 but similar to z1. ");
+            in("", answer);
+            if (strcmp(answer, "Schreder_Z18")== 0){
+                out("Correct!!!\n");
+            }
+            else{
+                out("try again bro\n");
+            }
+        }
+
+        else if (guess == 7){
+            out("Malaysia made lamp similar to Lunoida. ");
+            in("", answer);
+            if (strcmp(answer, "Nikkon_S419")== 0){
+                out("Correct!!!\n");
+            }
+            else{
+                out("try again bro\n");
+            }
+        }
+
+        else if (guess == 8){
+            out("Curved HPS lamp. ");
+            in("", answer);
+            if (strcmp(answer, "Lunoida")== 0){
+                out("Correct!!!\n");
+            }
+            else {
+                out("try again bro\n");
+            }
+        }
+
+        else if (guess == 9){
+            out("First schreder lamp. ");
+            in("", answer);
+            if (strcmp(answer, "Schreder_PQ")== 0){
+                out("Correct!!!\n");
+            }
+
+            else{
+                out("try again bro\n");
+            }
+        }
+        
+        else if (guess == 10) {
+            out("Schreder lamp that looks like Saturn. ");
+            in("", answer);
+            if (strcmp(answer, "Schreder_Saturn")== 0){
+                out("Correct!!\n");
+            }
+
+            else{
+                out("try again bro\n");
+            }
+
+
+        }
+
+        else if (guess == 11){
+            out("Made by Thorn and also can be seen in Salak Highway (maybe). ");
+            in("", answer);
+            if (strcmp(answer, "Thorn_Alpha_3")== 0){
+                out ("Correct!!!\n");
+            }
+
+            else{
+                out("try again bro\n");
+            }
+        }
+
+        else if (guess == 12){
+            out("One of the thinnest street light that Thorn has ever made. ");
+
+            in("", answer);
+            if (strcmp(answer, "Thorn_Alpha_4")== 0){
+                out("Correct!!!\n");
+            }
+
+            else{
+                out("try again bro\n");
+            }
+        }
+        else if (guess == 13){
+            out("Schreder lamp similar to Thorn Alpha 8 and SGS 203. ");
+            in("", answer);
+            if (strcmp(answer, "Schreder_MC")== 0){
+                out("Correct!!!\n");
+            }
+
+            else{
+                out("try again bro\n");
+            }
+        }
+
+        else if (guess == 14){
+            out("A Philips street lamp and only have HPS and Mercury. ");
+            in("", answer);
+            if (strcmp(answer, "SGS_203")== 0){
+                out("Correct!!!\n");
+            }
+
+            else{
+                out("try again bro\n");
+            }
+        }
+
+        else if (guess == 0){
+            out("A Schreder lamp that is really similar to SGS201. It's the only lamp in this game that has Cosmopolis and it is seal safe. ");
+            in("", answer);
+            if (strcmp(answer, "Schreder_Sapphire")== 0){
+                out("Correct!!!\n");
+            }
+
+            else{
+                out("try again bro\n");
+            }
+        }
+    }
+//Guns: 
+
+//Primary
+
+//Sniper : 1
+//Crossbow : 2
+
+//Secondary
+
+//Daggers : 1
+//Revolver : 2
+
+//Melee
+
+//Scythe : 1
+//Knife : 2
+
+//Utilities
+
+//MedKit : 1
+//Jump Pad : 2
+    else if (strcmp(cmd, "game9") == 0){
+        int primary;
+        int secondary;
+        int melee;
+        int utility;
+        int input;
+        int input2;
+        out("Welcome to sniping game\n");
+        out("Pick your primary weapons: \n");
+        out("Available primary: Sniper (1), Crossbow (2)\n");
+        out("Pick your weapons by typing it with gun codes: ");
+        in("", &primary);
+        if (primary == 1){
+            out("You picked sniper\n");
+        }
+        else if (primary == 2){
+            out("You picked crossbow\n");
+        }
+        out("Pick your secondary weapons: \n");
+        out("Available secondary: Daggers (1), Revolver (2)\n");
+        out("Pick your weapons by typing it with gun codes: ");
+        in("", &secondary);
+        if (primary == 1){
+            out("You picked daggers\n");
+        }
+        else if (primary == 2){
+            out("You picked revolver\n");
+        }
+        out("Pick your melee: \n");
+        out("Available melees: Scythe (1), Knife (2)\n");
+        out("Pick your weapons by typing it with melee codes: ");
+        in("", &melee);
+        if (primary == 1){
+            out("You picked scythe\n");
+        }
+        else if (primary == 2){
+            out("You picked knife\n");
+        }
+        out("Pick your utility: \n");
+        out("Available utilities: Medkit (1), Jump Pad (2)\n");
+        out("Pick your weapons by typing it with utility codes: ");
+        in("", &utility);
+        if (primary == 1){
+            out("You picked medkit\n");
+        }
+        else if (primary == 2){
+            out("You picked jump pad\n");
+        }
+        out("So your main codes are: %d, %d, %d, %d,\n", primary, secondary, melee, utility);
+
+        out("\n");
+        out("ROUND 1/2\n");
+        out("Your opponent placed a jump pad but still visible to you\n");
+        out("What type of weapon do you equip? ");
+        in("", &input);
+        if (input == 1){
+            if (input == 1){
+                sleep(1);
+                out("Headshot! Opponent had died\n");
+                out("ROUND 2/2\n");
+                out("Your opponent sniping you from far away\n");
+                out("What type of weapon do you equip? ");
+                in("", &input);
+                if (input == 1){
+                    sleep(1);
+                    out("Headshot! Opponent had died\n");
+                }
+                else if (input == 2){
+                    sleep(30);
+                    out("What are you doing? Secondary is for close range. YOU DIED\n");
+                }
+                else if (input == 3){
+                    sleep(10);
+                    out("What are you doing? Melee is for close range. YOU DIED\n");
+                }
+                else if (input == 4){
+                    sleep(4);
+                    out("Worst decision BTW. YOU DIED\n");
+                }
+            }
+            else if (input == 2){
+                sleep(10);
+                out("Headshot! Opponent had died\n");
+            }
+        }
+        else if (input == 2){
+            if (input == 1){
+                sleep(30);
+                out("It has been rough... You lost 70 of your HP, but you killed him!\n");
+            }
+            else if (input == 2){
+                sleep(20);
+                out("It has been rough... You lost 40 of your HP, but you killed him!\n");
+            }
+        }
+
+        else if (input == 3){
+            if (input == 1){
+                sleep(30);
+                out("You dashed but your opponent found and killed you. YOU ARE OUT OF THE MATCH!\n");
+            }
+            else if (input == 2){
+                sleep(10);
+                out("You sneak attack and backstabbed him! Good work!!!\n");
+            }
+        }
+
+        else if (input == 4){
+            if (input == 1){
+                sleep(30);
+                out("Worst decision ever yet!!! Now opponent found you and sniped. YOU ARE OUT OF THE MATCH\n");
+            }
+            else if (input == 2){
+                sleep(10);
+                out("Worst decision ever yet!!! Now opponent found you and sniped. YOU ARE OUT OF THE MATCH\n");
+            }
+        }
+
+    }
+
+    else if (strcmp(cmd, "game10") == 0){
+        int r1 = rand() % 11;
+        int r2 = rand() % 11;
+        int r3 = rand() % 11;
+        int r4 = rand() % 11;
+        int r5 = rand() % 11;
+        int input;
+
+        out("avoid the chosen number (from 0 to 10)\n");
+        out("Guess a number: ");
+        in("", &input);
+        if (input == r1){
+            out("you are out.\n");
+        }
+        else{
+            out("Guess a number: ");
+            in("", &input);
+            if (input == r2 || input == r1){
+                out("you are out.\n");
+            }
+            else{
+                out("Guess a number: ");
+                in("", &input);
+                if (input == r3 || input == r2 || input == r1){
+                    out("you are out.\n");
+                }
+                else{
+                    out("Guess a number: ");
+                    in("", &input);
+                    if (input == r4 || input == r3 || input == r2 || input == r1){
+                        out("you are out.\n");
+                    }
+                    else{
+                        out("Guess a number: ");
+                        in("", &input);
+                        if (input == r5 || input == r4 || input == r3 || input == r2 || input == r1){
+                            out("you are out.\n");
+                        }
+                        else{
+                            out("You pass all round.\n");
+                        }
+                    }
+                }
+            }
+        }
+
+
+    }
+
+    else if (strcmp(cmd, "version-zlio") == 0){
+        out("ZLIO Library - Version 2.0.0\n");
+    }
+
+    else if (strcmp(cmd, "system") == 0){
+        tagged();
+    }
+
+    else if (strcmp(cmd, "history") == 0){
+        FILE *fptr;
+        fptr = fopen("qubabasdwiaisd.txt", "r");
+
+        char history [100];
+
+        if (fptr != NULL){
+            while(fgets(history, 100, fptr)){
+                out("%s", history);
+            }
+        }
+
+        fclose(fptr);
+
+        out("\n");
+    }
+
+    else if (strcmp(cmd, "clear-history") == 0){
+        FILE *fptr;
+        fptr = fopen("qubabasdwiaisd.txt", "w");
+
+        fprintf(fptr, "");
+        fclose(fptr);
+    }
+
+    else if (strcmp(cmd, "wc") == 0) {
+        if (parsed_args < 2) {
+            out("errcode 3: file not provided\n");
+        } else {
+            if (strcmp(arg1, notes_name) == 0 && notes_mode == 0) {
+                out("errcode 9: permission denied\n");
+            } else {
+                char read_path[128];
+                get_current_path(loc, arg1, read_path);
+                FILE *rf = fopen(read_path, "r");
+                if (rf) {
+                    int count = 0;
+                    int inword = 0;
+                    int ch;
+    
+                    while ((ch = fgetc(rf)) != EOF) {
+                        if (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r') {
+                            inword = 0;
+                        } else if (!inword) {
+                            inword = 1;
+                            count++;
+                        }
+                    }
+                    fclose(rf);
+    
+                    char outbuffer[64];
+                    snprintf(outbuffer, sizeof(outbuffer), "%d\n", count);
+                    out(outbuffer);
+                } else {
+                    out("errcode 3: file not provided\n");
+                }
+            }
+        }
+    }
+    
+    
 
     
     else if (strcmp(cmd, "sudo-exit") == 0) {
         if (superior == 1){exit(0);}
-        else {printf("err: sudo user undetected, switch to sudo user\n");}
+        else {out("errcode 2 : sudo user undetected, switch to sudo user\n");}
         
     }
 
     else {
-        printf("err: command not found\n");
+        out("errcode 1 : command not found\n");
+    }
+
+    FILE *fptr = fopen("qubabasdwiaisd.txt", "a+");
+    if (fptr != nullptr) {
+        fprintf(fptr, "%s %s\n", cmd, arg1);
+        fclose(fptr);
+    } 
+    else {
     }
 
 }
@@ -2346,8 +3831,6 @@ int main() {
     srand(time(NULL));
     char input[100];
     FILE *file;
-    
-    
 
     remove("system/sys.txt");
     remove("documents/notes.txt");
@@ -2363,72 +3846,73 @@ int main() {
         fprintf(file, "https://codepad.app/pad/822052z5n");
         fclose(file);
     }
-    printf("SealKernel 21.7.2026\n");
-    printf("A project by ZileLai\n");
-    printf("if don't know any command, use 'help'\n");
+    out("SealKernel 11.8.2026\n");
+    out("A project by ZileLai\n");
+    out("ZL Projects' Website : https://zilelai.lab26.my/\n");
+    out("if don't know any command, use 'help'\n");
 
     while (1) {
         
         if (loc == 1 && superior == 0 && strcmp(users, "seal") == 0){
-            printf("seal/home &$ ");
+            out("seal/home &$ ");
         }
         else if (loc == 2 && superior == 0 && strcmp(users, "seal") == 0){
-            printf("seal/documents &$ ");
+            out("seal/documents &$ ");
         }
         else if (loc == 3 && superior == 0 && strcmp(users, "seal") == 0){
-            printf("seal/downloads &$ ");
+            out("seal/downloads &$ ");
         }
         else if (loc == 4 && superior == 0 && strcmp(users, "seal") == 0){
-            printf("seal/system &$ ");
+            out("seal/system &$ ");
         }
         else if (loc == 0 && superior == 0 && strcmp(users, "seal") == 0){
-            printf("seal &$ ");
+            out("seal &$ ");
         }
         else if (loc == 1 && superior == 1 && strcmp(users, "seal") == 0){
-            printf("superior/home &$ ");
+            out("superior/home &# ");
         }
         else if (loc == 2 && superior == 1 && strcmp(users, "seal") == 0){
-            printf("superior/documents &$ ");
+            out("superior/documents &# ");
         }
         else if (loc == 3 && superior == 1 && strcmp(users, "seal") == 0){
-            printf("superior/downloads &$ ");
+            out("superior/downloads &# ");
         }
         else if (loc == 4 && superior == 1 && strcmp(users, "seal") == 0){
-            printf("superior/system &$ ");
+            out("superior/system &# ");
         }
         else if (loc == 0 && superior == 1 && strcmp(users, "seal") == 0){
-            printf("superior/seal &$ ");
+            out("superior/seal &# ");
         }
         //NOT 'SEAL'
         else if (loc == 1 && superior == 0 && strcmp(users, "seal") != 1){
-            printf("%s/home &$ ", users);
+            out("%s/home &$ ", users);
         }
         else if (loc == 2 && superior == 0 && strcmp(users, "seal") != 1){
-            printf("%s/documents &$ ", users);
+            out("%s/documents &$ ", users);
         }
         else if (loc == 3 && superior == 0 && strcmp(users, "seal") != 1){
-            printf("%s/downloads &$ ", users);
+            out("%s/downloads &$ ", users);
         }
         else if (loc == 4 && superior == 0 && strcmp(users, "seal") != 1){
-            printf("%s/system &$ ", users);
+            out("%s/system &$ ", users);
         }
         else if (loc == 0 && superior == 0 && strcmp(users, "seal") != 1){
-            printf("%s &$ ", users);
+            out("%s &$ ", users);
         }
         else if (loc == 1 && superior == 1 && strcmp(users, "seal") != 1){
-            printf("superior/home &$ ");
+            out("superior/home &# ");
         }
         else if (loc == 2 && superior == 1 && strcmp(users, "seal") != 1){
-            printf("superior/documents &$ ");
+            out("superior/documents &# ");
         }
         else if (loc == 3 && superior == 1 && strcmp(users, "seal") != 1){
-            printf("superior/downloads &$ ");
+            out("superior/downloads &# ");
         }
         else if (loc == 4 && superior == 1 && strcmp(users, "seal") != 1){
-            printf("superior/system &$ ");
+            out("superior/system &# ");
         }
         else if (loc == 0 && superior == 1 && strcmp(users, "seal") != 1){
-            printf("superior/seal &$ ");
+            out("superior/seal &# ");
         }
         fflush(stdout);
 
@@ -2437,10 +3921,10 @@ int main() {
         if (strcmp(input, "curl\n") == 0) {
 
             #ifdef LIBCURL_AVAILABLE
-                printf("running curl...\n");
+                out("running curl...\n");
                 break;
             #else
-                printf("err: curl not supported here\n");
+                out("err: curl not supported here\n");
                 continue;
             #endif
         }
@@ -2469,7 +3953,7 @@ int main() {
             if(res != CURLE_OK) {
                 fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
             } else {
-                printf("%s\n", response_string);
+                out("%s\n", response_string);
             }
 
             curl_easy_cleanup(curl);
