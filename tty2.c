@@ -43,8 +43,6 @@ void stroutput(const char *str, int *count) {
     }
 }
 
-#include <stdio.h>
-
 #if defined(__linux__)
 void tagged() {
     out("linux\n");
@@ -324,22 +322,43 @@ long t = 832832832732;
 int superior;
 char users[128] = "seal";
 int config;
+char cwd[1024];
 
 
 
 
 
 void get_current_path(int current_loc, const char* filename, char* out_path) {
+    size_t max_len = 128;
+
     switch(current_loc) {
-        case 1: sprintf(out_path, "home/%s", filename); break;
-        case 2: sprintf(out_path, "documents/%s", filename); break;
-        case 3: sprintf(out_path, "downloads/%s", filename); break;
-        case 4: sprintf(out_path, "system/%s", filename); break;
-        case 5: sprintf(out_path, "music/%s", filename); break;
-        case 6: sprintf(out_path, "pictures/%s", filename); break;
-        case 7: sprintf(out_path, "videos/%s", filename); break;
-        case 8: sprintf(out_path, "examples/%s", filename); break;
-        default: sprintf(out_path, "%s", filename); break; 
+        case 1: 
+            snprintf(out_path, max_len, "seal/home/xt67l97o/%s", filename); 
+            break;
+        case 2: 
+            snprintf(out_path, max_len, "seal/documents/%s", filename); 
+            break;
+        case 3: 
+            snprintf(out_path, max_len, "seal/downloads/%s", filename); 
+            break;
+        case 4: 
+            snprintf(out_path, max_len, "seal/system/%s", filename); 
+            break;
+        case 5: 
+            snprintf(out_path, max_len, "seal/music/%s", filename); 
+            break;
+        case 6: 
+            snprintf(out_path, max_len, "seal/pictures/%s", filename); 
+            break;
+        case 7: 
+            snprintf(out_path, max_len, "seal/videos/%s", filename); 
+            break;
+        case 8: 
+            snprintf(out_path, max_len, "seal/examples/%s", filename); 
+            break;
+        default: 
+            snprintf(out_path, max_len, "seal/%s", filename); 
+            break; 
     }
 }
 
@@ -507,7 +526,11 @@ void process_system_command(char *input) {
         else {
             if (strcmp(arg1, "tty1.cpp") == 0 || 
                 strcmp(arg1, "tty2.cpp") == 0 || 
-                strcmp(arg1, "qubabasdwiaisd.txt") == 0) {
+                strcmp(arg1, "qubabasdwiaisd.txt") == 0 || 
+                strcmp(arg1, "compress.h") == 0 || 
+                strcmp(arg1, "decompress.h") == 0 || 
+                strcmp(arg1, "stb_image.h") == 0 || 
+                strcmp(arg1, "zlio.h") == 0) {
                 
                 out("errcode 24: access denied: doing such process is very dangerous\n");
             } 
@@ -529,6 +552,7 @@ void process_system_command(char *input) {
             }
         }
     }
+    
 
     else if (strcmp(cmd, "mv") == 0) {
         char o[128];
@@ -1069,7 +1093,7 @@ void process_system_command(char *input) {
             printf("       ....:::::^^^~~^^^:^~ : ^:::^^.......       \n");
             printf("                   .......^:~^~~^^.               \n");
             printf("\n");
-            printf("SealKernel 11.8.2026\n");
+            printf("SealKernel 13.8.2026\n");
             printf("Code Env.: VM\n");
             printf("Code Env. 2: CodePad\n");
             printf("Code: C, C++\n");
@@ -1103,11 +1127,11 @@ void process_system_command(char *input) {
             printf("\n");
         
             long size = 0;
-            filesize("main.cpp", "main.cpp");
+            filesize("tty1.cpp", "tty1.cpp");
         
             
         
-            printf("SealKernel 11.8.2026\n");
+            printf("SealKernel 13.8.2026\n");
             printf("Code Env.: VM\n");
             printf("Code Env. 2: CodePad\n");
             printf("Code: C, C++\n");
@@ -1124,7 +1148,13 @@ void process_system_command(char *input) {
             out("%s", ctime(&currentTime));
             tagged();
         }
-        
+
+    else if (strcmp(cmd, "version-about") == 0){
+        out("About Function - Version 1.5.0\n");
+    }
+    else if (strcmp(cmd, "version-info") == 0){
+        out("About Function - Version 2.2.0\n");
+    }
         
             
     else if (strcmp(cmd, "sizeofint") == 0){
@@ -1143,11 +1173,12 @@ void process_system_command(char *input) {
         out("%zu\n", sizeof(r));
     }
     else if (strcmp(cmd, "goto") == 0) {
-        if (strcmp(arg1, "home") == 0) loc = 1;
-        else if (strcmp(arg1, "documents") == 0) loc = 2;
-        else if (strcmp(arg1, "downloads") == 0) loc = 3;
-        else if (strcmp(arg1, "system") == 0) loc = 4;
-        else out("errcode 3: file not provided\n");
+        if (arg1[0] != '\0') {
+            if (chdir(arg1) == 0) {}
+            else {
+                perror("errcode 3 : file not provided");
+            }
+        }
     }
 
     else if (strcmp(cmd, "sudo-on") == 0){
@@ -1165,16 +1196,19 @@ void process_system_command(char *input) {
         out("normal mode\n");
     }
     else if (strcmp(cmd, "back") == 0) {
-        loc = 0;
+        chdir("/home");
     }
     else if (strcmp(cmd, "where") == 0) {
-        const char* locations[] = {"root", "home", "documents", "downloads", "system"};
-
-        if (loc >= 0 && loc <= 4) out("%s\n", locations[loc]);
-        else if (superior == 1) out("superior/%s\n", locations[loc]);
+        
+        if (getcwd(cwd, sizeof(cwd)) != NULL) {
+            out("%s\n", cwd);
+        }
+        else {
+            perror("errcode 13 : could not open file");
+        }
     }
     else if (strcmp(cmd, "version") == 0) {
-        out("SealKernel 11.8.2026\n");
+        out("SealKernel 12.8.2026\n");
     }
     else if (strcmp(cmd, "release") == 0){
         printf("SealKernel 10 - can check size of variable class and can check version and release.\n");printf("SealKernel 11 - added curl to grab data from one site and added fast OS specification.\n");printf("SealKernel 12 [BETA] - added tsastream command to check streaming marks for TSIS student\n");printf("SealKernel 13 - Added calculator function andd improved tsastream\n"); printf("SealKernel 14 [BETA] - added tic tac toe game\n");printf("SealKernel 15 - added check storage in main.cpp\n");printf("SealKernel 16 - added check storage in main.cpp inside quick and about and removed TIC TAC TOE for ROCK PAPER SCISSORS game\n");printf("SealKernel 17 - fixed rock paper scissors game and added guess the number game\n"); printf ("SealKernel 18 - changed file locations and changed space-main.cpp to space. Also fixed game1\n");printf("SealKernel 19 - added game3 and game4 and also restricted exit command only for sudo user\n");printf("SealKernel 20 - added dice feature\n");printf("SealKernel 21 - fixed tsastream and removed quick and about for monthly cleaning (July)\n");    printf("SealKernel 22 - Improved tsastream\n");printf("SealKernel 23 - added luck program, element program and game5. Also improved pad function\n");printf("SealKernel 24 - added speed reaction game\n");printf("SealKernel 25 - Added conquer country game and also added bool. Also addded more space function (check out in help)\n");printf("SealKernel 26 - changed entire ls family, changed file structure\n");printf("SealKernel 27 - changed entire code structure of calculator\n");printf("SealKernel 28 - added move function and changed execute function\n");printf("SealKernel 16.7.2026 - changed version name from 28 to 16.7.2026 to indicate when was the version released, added more file for different purposes and also added image function. Finally, we also added file space for them\n");printf("SealKernel 17.7.2026 - added words, phrase and essay function\n");printf("SealKernel 19.7.2026 - prevent overflowing values for tsastream\n");printf("SealKernel 19.7.2026 More - created users function\n");
@@ -1182,8 +1216,7 @@ void process_system_command(char *input) {
         printf("SealKernel 21.7.2026 - added own package manager from bpm and also fixed Trigraphs error and other warnings\n");
         printf("SealKernel 22.7.2026 - added browser function to show HTML code in website\n");printf("SealKernel 23.7.2026 - added bootloader and function clear\n");printf("SealKernel 26.7.2026 - fixed space and about function and added error code for future purposes\n");
         printf("SealKernel 27.7.2026 - added 2026 next term expectation in beta so students can see their marks and see which class they are going to be in and break their hopes and dreams\n");printf("SealKernel 28.7.2026 - changed entire code structure for tsastream\n");printf("SealKernel 29.7.2026 - added game8 and game9 is in progress\n");
-        printf("SealKernel 30.7.2026 - added game10, game9 in progress and tsastream new update.\n");out("SealKernel 31.7.2026 - changed stdio lib to zlio lib.\n");out("SealKernel 1.8.2026 - added date to info and about and also improved tsastream\n");out("SealKernel 5.8.2026 - improved help, bootloader changed, added another text editor, extend execute function to other language and added system function\n");out("SealKernel 9.8.2026 - added history and clear history function and also made remove function more secure\n");out("SealKernel 11.8.2026 - added talktoseal feature and added head and tail feature\n");
-    }
+        printf("SealKernel 30.7.2026 - added game10, game9 in progress and tsastream new update.\n");out("SealKernel 31.7.2026 - changed stdio lib to zlio lib.\n");out("SealKernel 1.8.2026 - added date to info and about and also improved tsastream\n");out("SealKernel 5.8.2026 - improved help, bootloader changed, added another text editor, extend execute function to other language and added system function\n");out("SealKernel 9.8.2026 - added history and clear history function and also made remove function more secure\n");out("SealKernel 11.8.2026 - added talktoseal feature and added head and tail feature\n");out("SealKernel 12.8.2026 - changed how goto, back and where works and also changed user input stuff\n");out("SealKernel 13.8.2026 - making rm more restricted (so system files won't get deleted) and also fixed change directory/path issue\n");}
     else if (strcmp(cmd, "ls") == 0) {
         DIR *dir;
         struct dirent *entry;
@@ -1229,6 +1262,8 @@ void process_system_command(char *input) {
         out("r - read a file\n");
         out("info - view system infomation\n");
         out("about - view system infomation but have more infomation\n");
+        out("version-info - check info version\n");
+        out("version-about - check about version\n");
         out("goto - go to a file/directory\n");
         out("sudo-on - turn on sudo mode\n");
         out("sudo-off - turn off sudo mode\n");
@@ -3828,6 +3863,7 @@ void process_system_command(char *input) {
 
 
 int main() {
+    system("clear");
     srand(time(NULL));
     char input[100];
     FILE *file;
@@ -3846,73 +3882,31 @@ int main() {
         fprintf(file, "https://codepad.app/pad/822052z5n");
         fclose(file);
     }
-    out("SealKernel 11.8.2026\n");
+    out("SealKernel 13.8.2026\n");
     out("A project by ZileLai\n");
     out("ZL Projects' Website : https://zilelai.lab26.my/\n");
     out("if don't know any command, use 'help'\n");
 
+    
+
+
     while (1) {
         
-        if (loc == 1 && superior == 0 && strcmp(users, "seal") == 0){
-            out("seal/home &$ ");
+        if (strcmp(users, "seal") == 0 && superior == 0){
+            if (getcwd(cwd, sizeof(cwd)) != NULL) {
+                out("seal%s $ ", cwd);
+            }
         }
-        else if (loc == 2 && superior == 0 && strcmp(users, "seal") == 0){
-            out("seal/documents &$ ");
+
+        else if (strcmp(users, "seal") != 0 && superior == 0){
+            if (getcwd(cwd, sizeof(cwd)) != NULL) {
+                out("%s%s $ ", users, cwd);
+            }
         }
-        else if (loc == 3 && superior == 0 && strcmp(users, "seal") == 0){
-            out("seal/downloads &$ ");
-        }
-        else if (loc == 4 && superior == 0 && strcmp(users, "seal") == 0){
-            out("seal/system &$ ");
-        }
-        else if (loc == 0 && superior == 0 && strcmp(users, "seal") == 0){
-            out("seal &$ ");
-        }
-        else if (loc == 1 && superior == 1 && strcmp(users, "seal") == 0){
-            out("superior/home &# ");
-        }
-        else if (loc == 2 && superior == 1 && strcmp(users, "seal") == 0){
-            out("superior/documents &# ");
-        }
-        else if (loc == 3 && superior == 1 && strcmp(users, "seal") == 0){
-            out("superior/downloads &# ");
-        }
-        else if (loc == 4 && superior == 1 && strcmp(users, "seal") == 0){
-            out("superior/system &# ");
-        }
-        else if (loc == 0 && superior == 1 && strcmp(users, "seal") == 0){
-            out("superior/seal &# ");
-        }
-        //NOT 'SEAL'
-        else if (loc == 1 && superior == 0 && strcmp(users, "seal") != 1){
-            out("%s/home &$ ", users);
-        }
-        else if (loc == 2 && superior == 0 && strcmp(users, "seal") != 1){
-            out("%s/documents &$ ", users);
-        }
-        else if (loc == 3 && superior == 0 && strcmp(users, "seal") != 1){
-            out("%s/downloads &$ ", users);
-        }
-        else if (loc == 4 && superior == 0 && strcmp(users, "seal") != 1){
-            out("%s/system &$ ", users);
-        }
-        else if (loc == 0 && superior == 0 && strcmp(users, "seal") != 1){
-            out("%s &$ ", users);
-        }
-        else if (loc == 1 && superior == 1 && strcmp(users, "seal") != 1){
-            out("superior/home &# ");
-        }
-        else if (loc == 2 && superior == 1 && strcmp(users, "seal") != 1){
-            out("superior/documents &# ");
-        }
-        else if (loc == 3 && superior == 1 && strcmp(users, "seal") != 1){
-            out("superior/downloads &# ");
-        }
-        else if (loc == 4 && superior == 1 && strcmp(users, "seal") != 1){
-            out("superior/system &# ");
-        }
-        else if (loc == 0 && superior == 1 && strcmp(users, "seal") != 1){
-            out("superior/seal &# ");
+        else if (superior == 1){
+            if (getcwd(cwd, sizeof(cwd)) != NULL) {
+                out("root%s $ ",cwd);
+            }
         }
         fflush(stdout);
 
