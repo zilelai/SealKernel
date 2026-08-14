@@ -726,172 +726,347 @@ void process_system_command(char *input) {
         }
     }
     else if (strcmp(cmd, "ls-t") == 0) {
-        DIR *dir;
-        struct dirent *entry;
-        char fpath[1024];
+        if(strcmp(arg1, "") == 0){
+            DIR *dir;
+            struct dirent *entry;
+            char fpath[1024];
     
-        dir = opendir(".");
-        if (dir == NULL){
-            out("errcode 3: file not provided\n");
-            return;
-        }
+            dir = opendir(".");
+            if (dir == NULL){
+                out("errcode 3: file not provided\n");
+                return;
+            }
 
-        while ((entry = readdir(dir)) != NULL){
-            if (entry->d_type == DT_REG){
-                out("-: %s\n", entry->d_name);
-            }
-            else if (entry->d_type == DT_DIR){
-                out("d: %s\n", entry->d_name);
-            }
+            while ((entry = readdir(dir)) != NULL){
+                if (entry->d_type == DT_REG){
+                    out("-: %s\n", entry->d_name);
+                }
+                else if (entry->d_type == DT_DIR){
+                    out("d: %s\n", entry->d_name);
+                }
            
             
-        }
+            }
 
-        if (closedir(dir) == -1){
-            out("errcode 3: file not provided\n");
-            return;
+            if (closedir(dir) == -1){
+                out("errcode 3: file not provided\n");
+                return;
+            }
+        }
+        else{
+            DIR *dir;
+            struct dirent *entry;
+            char fpath[1024];
+    
+            dir = opendir(".");
+            if (dir == NULL){
+                out("errcode 3: file not provided\n");
+                return;
+            }
+
+            while ((entry = readdir(dir)) != NULL){
+                if (entry->d_type == DT_REG){
+                    out("-: %s\n", entry->d_name);
+                }
+                else if (entry->d_type == DT_DIR){
+                    out("d: %s\n", entry->d_name);
+                }
+           
+            
+            }
+
+            if (closedir(dir) == -1){
+                out("errcode 3: file not provided\n");
+                return;
+            }
         }
     }
     else if (strcmp(cmd, "ls-d") == 0) {
-        DIR *dir;
-        struct dirent *entry;
-        char fpath[1024];
-        char read;
-        char write;
-        char execute;
-        char null;
+        if(strcmp(arg1, "") == 0){
+            DIR *dir;
+            struct dirent *entry;
+            char fpath[1024];
+            char read;
+            char write;
+            char execute;
+            char null;
     
-        dir = opendir(".");
-        if (dir == NULL){
-            out("errcode 3: file not provided\n");
-            return;
-        }
-
-        while ((entry = readdir(dir)) != NULL){
-            snprintf(fpath, sizeof(fpath), "./%s", entry->d_name);
-
-            struct stat pstd;
-            if (stat(fpath, &pstd) != 0) {
-                perror("errcode 11 : file status down");
-                continue;
+            dir = opendir(".");
+            if (dir == NULL){
+                out("errcode 3: file not provided\n");
+                return;
             }
 
-            if (S_ISREG(pstd.st_mode)){
-                int r = (access(fpath, R_OK) == 0);int w = (access(fpath, W_OK) == 0);int x = (access(fpath, X_OK) == 0);
+            while ((entry = readdir(dir)) != NULL){
+                snprintf(fpath, sizeof(fpath), "./%s", entry->d_name);
 
+                struct stat pstd;
+                if (stat(fpath, &pstd) != 0) {
+                    perror("errcode 11 : file status down");
+                    continue;
+                }
+
+                if (S_ISREG(pstd.st_mode)){
+                    int r = (access(fpath, R_OK) == 0);int w = (access(fpath, W_OK) == 0);int x = (access(fpath, X_OK) == 0);
+
+                    if (r == 1){read = 'r';}
+                    if (w == 1){write = 'w';}
+                    if (x == 1){execute = 'x';}
+                    if (r == 0){read = '-';}
+                    if (w == 0){write = '-';}
+                    if (x == 0){execute = '-';}
+                    out("%c/%c/%c/%s\n", read,write,execute, entry->d_name);
+                
+                }
+            }
+            if (closedir(dir) == -1){
+                out("errcode 3: file not provided\n");
+                return;
+            }
+        }
+        else{
+            DIR *dir;
+            struct dirent *entry;
+            char fpath[1024];
+            char read;
+            char write;
+            char execute;
+            char null;
+    
+            dir = opendir(arg1);
+            if (dir == NULL){
+                out("errcode 3: file not provided\n");
+                return;
+            }
+
+            while ((entry = readdir(dir)) != NULL){
+                snprintf(fpath, sizeof(fpath), "./%s", entry->d_name);
+
+                struct stat pstd;
+                if (stat(fpath, &pstd) != 0) {
+                    perror("errcode 11 : file status down");
+                    continue;
+                }
+
+                if (S_ISREG(pstd.st_mode)){
+                    int r = (access(fpath, R_OK) == 0);int w = (access(fpath, W_OK) == 0);int x = (access(fpath, X_OK) == 0);
+
+                    if (r == 1){read = 'r';}
+                    if (w == 1){write = 'w';}
+                    if (x == 1){execute = 'x';}
+                    if (r == 0){read = '-';}
+                    if (w == 0){write = '-';}
+                    if (x == 0){execute = '-';}
+                    out("%c/%c/%c/%s\n", read,write,execute, entry->d_name);
+                
+                }
+            }
+            if (closedir(dir) == -1){
+                out("errcode 3: file not provided\n");
+                return;
+            }
+        }
+    }
+
+    else if (strcmp(cmd, "ls-dt") == 0) {
+        if(strcmp(arg1, "") == 0){
+            DIR *dir;
+            struct dirent *entry;
+            char fpath[1024];
+            char read;
+            char write;
+            char execute;
+            char null;
+    
+            dir = opendir(".");
+            if (dir == NULL){
+                out("errcode 3: file not provided\n");
+                return;
+            }
+    
+            while ((entry = readdir(dir)) != NULL) {
+                snprintf(fpath, sizeof(fpath), "%s", entry->d_name); 
+        
+                struct stat pstd;
+            
+           
+                if (stat(fpath, &pstd) != 0) {
+                    continue; 
+                }
+        
+                int r = (access(fpath, R_OK) == 0);
+                int w = (access(fpath, W_OK) == 0);
+                int x = (access(fpath, X_OK) == 0);
+        
                 if (r == 1){read = 'r';}
                 if (w == 1){write = 'w';}
                 if (x == 1){execute = 'x';}
                 if (r == 0){read = '-';}
                 if (w == 0){write = '-';}
                 if (x == 0){execute = '-';}
-                out("%c/%c/%c/%s\n", read,write,execute, entry->d_name);
-                
+            
+                if (S_ISREG(pstd.st_mode)) {
+                    out("-/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
+                } 
+                else if (S_ISDIR(pstd.st_mode)) {
+                    out("d/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
+                }
+            }
+    
+            if (closedir(dir) == -1){
+                out("errcode 3: file not provided\n");
+                return;
             }
         }
-        if (closedir(dir) == -1){
-            out("errcode 3: file not provided\n");
-            return;
-        }
-    }
-
-    else if (strcmp(cmd, "ls-dt") == 0) {
-        DIR *dir;
-        struct dirent *entry;
-        char fpath[1024];
-        char read;
-        char write;
-        char execute;
-        char null;
+        else{
+            DIR *dir;
+            struct dirent *entry;
+            char fpath[1024];
+            char read;
+            char write;
+            char execute;
+            char null;
     
-        dir = opendir(".");
-        if (dir == NULL){
-            out("errcode 3: file not provided\n");
-            return;
-        }
+            dir = opendir(arg1);
+            if (dir == NULL){
+                out("errcode 3: file not provided\n");
+                return;
+            }
     
-        while ((entry = readdir(dir)) != NULL) {
-            snprintf(fpath, sizeof(fpath), "%s", entry->d_name); 
+            while ((entry = readdir(dir)) != NULL) {
+                snprintf(fpath, sizeof(fpath), "%s", entry->d_name); 
         
-            struct stat pstd;
+                struct stat pstd;
             
            
-            if (stat(fpath, &pstd) != 0) {
-                continue; 
-            }
+                if (stat(fpath, &pstd) != 0) {
+                    continue; 
+                }
         
-            int r = (access(fpath, R_OK) == 0);
-            int w = (access(fpath, W_OK) == 0);
-            int x = (access(fpath, X_OK) == 0);
+                int r = (access(fpath, R_OK) == 0);
+                int w = (access(fpath, W_OK) == 0);
+                int x = (access(fpath, X_OK) == 0);
         
-            if (r == 1){read = 'r';}
-            if (w == 1){write = 'w';}
-            if (x == 1){execute = 'x';}
-            if (r == 0){read = '-';}
-            if (w == 0){write = '-';}
-            if (x == 0){execute = '-';}
+                if (r == 1){read = 'r';}
+                if (w == 1){write = 'w';}
+                if (x == 1){execute = 'x';}
+                if (r == 0){read = '-';}
+                if (w == 0){write = '-';}
+                if (x == 0){execute = '-';}
             
-            if (S_ISREG(pstd.st_mode)) {
-                out("-/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
-            } 
-            else if (S_ISDIR(pstd.st_mode)) {
-                out("d/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
+                if (S_ISREG(pstd.st_mode)) {
+                    out("-/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
+                } 
+                else if (S_ISDIR(pstd.st_mode)) {
+                    out("d/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
+                }
             }
-        }
     
-        if (closedir(dir) == -1){
-            out("errcode 3: file not provided\n");
-            return;
+            if (closedir(dir) == -1){
+                out("errcode 3: file not provided\n");
+                return;
+            }
         }
     }
 
     else if (strcmp(cmd, "ls-td") == 0) {
-        DIR *dir;
-        struct dirent *entry;
-        char fpath[1024];
-        char read;
-        char write;
-        char execute;
-        char null;
+        if(strcmp(arg1, "") == 0){
+            DIR *dir;
+            struct dirent *entry;
+            char fpath[1024];
+            char read;
+            char write;
+            char execute;
+            char null;
     
-        dir = opendir(".");
-        if (dir == NULL){
-            out("errcode 3: file not provided\n");
-            return;
-        }
+            dir = opendir(".");
+            if (dir == NULL){
+                out("errcode 3: file not provided\n");
+                return;
+            }
     
-        while ((entry = readdir(dir)) != NULL) {
-            snprintf(fpath, sizeof(fpath), "%s", entry->d_name); 
+            while ((entry = readdir(dir)) != NULL) {
+                snprintf(fpath, sizeof(fpath), "%s", entry->d_name); 
         
-            struct stat pstd;
+                struct stat pstd;
             
            
-            if (stat(fpath, &pstd) != 0) {
-                continue; 
-            }
+                if (stat(fpath, &pstd) != 0) {
+                    continue; 
+                }
         
-            int r = (access(fpath, R_OK) == 0);
-            int w = (access(fpath, W_OK) == 0);
-            int x = (access(fpath, X_OK) == 0);
+                int r = (access(fpath, R_OK) == 0);
+                int w = (access(fpath, W_OK) == 0);
+                int x = (access(fpath, X_OK) == 0);
         
-            if (r == 1){read = 'r';}
-            if (w == 1){write = 'w';}
-            if (x == 1){execute = 'x';}
-            if (r == 0){read = '-';}
-            if (w == 0){write = '-';}
-            if (x == 0){execute = '-';}
+                if (r == 1){read = 'r';}
+                if (w == 1){write = 'w';}
+                if (x == 1){execute = 'x';}
+                if (r == 0){read = '-';}
+                if (w == 0){write = '-';}
+                if (x == 0){execute = '-';}
             
-            if (S_ISREG(pstd.st_mode)) {
-                out("-/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
-            } 
-            else if (S_ISDIR(pstd.st_mode)) {
-                out("d/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
+                if (S_ISREG(pstd.st_mode)) {
+                    out("-/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
+                } 
+                else if (S_ISDIR(pstd.st_mode)) {
+                    out("d/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
+                }
+            }
+    
+            if (closedir(dir) == -1){
+                out("errcode 3: file not provided\n");
+                return;
             }
         }
+        else{
+            DIR *dir;
+            struct dirent *entry;
+            char fpath[1024];
+            char read;
+            char write;
+            char execute;
+            char null;
     
-        if (closedir(dir) == -1){
-            out("errcode 3: file not provided\n");
-            return;
+            dir = opendir(arg1);
+            if (dir == NULL){
+                out("errcode 3: file not provided\n");
+                return;
+            }
+    
+            while ((entry = readdir(dir)) != NULL) {
+                snprintf(fpath, sizeof(fpath), "%s", entry->d_name); 
+        
+                struct stat pstd;
+            
+           
+                if (stat(fpath, &pstd) != 0) {
+                    continue; 
+                }
+        
+                int r = (access(fpath, R_OK) == 0);
+                int w = (access(fpath, W_OK) == 0);
+                int x = (access(fpath, X_OK) == 0);
+        
+                if (r == 1){read = 'r';}
+                if (w == 1){write = 'w';}
+                if (x == 1){execute = 'x';}
+                if (r == 0){read = '-';}
+                if (w == 0){write = '-';}
+                if (x == 0){execute = '-';}
+            
+                if (S_ISREG(pstd.st_mode)) {
+                    out("-/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
+                } 
+                else if (S_ISDIR(pstd.st_mode)) {
+                    out("d/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
+                }
+            }
+    
+            if (closedir(dir) == -1){
+                out("errcode 3: file not provided\n");
+                return;
+            }
         }
     }
 
@@ -1079,7 +1254,7 @@ void process_system_command(char *input) {
             printf("       ....:::::^^^~~^^^:^~ : ^:::^^.......       \n");
             printf("                   .......^:~^~~^^.               \n");
             printf("\n");
-            printf("SealKernel 13.8.2026 More\n");
+            printf("SealKernel 14.4.2026\n");
             printf("Code Env.: VM\n");
             printf("Code Env. 2: CodePad\n");
             printf("Code: C, C++\n");
@@ -1117,7 +1292,7 @@ void process_system_command(char *input) {
         
             
         
-            printf("SealKernel 13.8.2026 More\n");
+            printf("SealKernel 14.8.2026\n");
             printf("Code Env.: VM\n");
             printf("Code Env. 2: CodePad\n");
             printf("Code: C, C++\n");
@@ -1202,7 +1377,7 @@ void process_system_command(char *input) {
         }
     }
     else if (strcmp(cmd, "version") == 0) {
-        out("SealKernel 13.8.2026 More\n");
+        out("SealKernel 14.8.2026\n");
     }
     else if (strcmp(cmd, "release") == 0){
         printf("SealKernel 10 - can check size of variable class and can check version and release.\n");printf("SealKernel 11 - added curl to grab data from one site and added fast OS specification.\n");printf("SealKernel 12 [BETA] - added tsastream command to check streaming marks for TSIS student\n");printf("SealKernel 13 - Added calculator function andd improved tsastream\n"); printf("SealKernel 14 [BETA] - added tic tac toe game\n");printf("SealKernel 15 - added check storage in main.cpp\n");printf("SealKernel 16 - added check storage in main.cpp inside quick and about and removed TIC TAC TOE for ROCK PAPER SCISSORS game\n");printf("SealKernel 17 - fixed rock paper scissors game and added guess the number game\n"); printf ("SealKernel 18 - changed file locations and changed space-main.cpp to space. Also fixed game1\n");printf("SealKernel 19 - added game3 and game4 and also restricted exit command only for sudo user\n");printf("SealKernel 20 - added dice feature\n");printf("SealKernel 21 - fixed tsastream and removed quick and about for monthly cleaning (July)\n");    printf("SealKernel 22 - Improved tsastream\n");printf("SealKernel 23 - added luck program, element program and game5. Also improved pad function\n");printf("SealKernel 24 - added speed reaction game\n");printf("SealKernel 25 - Added conquer country game and also added bool. Also addded more space function (check out in help)\n");printf("SealKernel 26 - changed entire ls family, changed file structure\n");printf("SealKernel 27 - changed entire code structure of calculator\n");printf("SealKernel 28 - added move function and changed execute function\n");printf("SealKernel 16.7.2026 - changed version name from 28 to 16.7.2026 to indicate when was the version released, added more file for different purposes and also added image function. Finally, we also added file space for them\n");printf("SealKernel 17.7.2026 - added words, phrase and essay function\n");printf("SealKernel 19.7.2026 - prevent overflowing values for tsastream\n");printf("SealKernel 19.7.2026 More - created users function\n");
@@ -1210,26 +1385,50 @@ void process_system_command(char *input) {
         printf("SealKernel 21.7.2026 - added own package manager from bpm and also fixed Trigraphs error and other warnings\n");
         printf("SealKernel 22.7.2026 - added browser function to show HTML code in website\n");printf("SealKernel 23.7.2026 - added bootloader and function clear\n");printf("SealKernel 26.7.2026 - fixed space and about function and added error code for future purposes\n");
         printf("SealKernel 27.7.2026 - added 2026 next term expectation in beta so students can see their marks and see which class they are going to be in and break their hopes and dreams\n");printf("SealKernel 28.7.2026 - changed entire code structure for tsastream\n");printf("SealKernel 29.7.2026 - added game8 and game9 is in progress\n");
-        printf("SealKernel 30.7.2026 - added game10, game9 in progress and tsastream new update.\n");out("SealKernel 31.7.2026 - changed stdio lib to zlio lib.\n");out("SealKernel 1.8.2026 - added date to info and about and also improved tsastream\n");out("SealKernel 5.8.2026 - improved help, bootloader changed, added another text editor, extend execute function to other language and added system function\n");out("SealKernel 9.8.2026 - added history and clear history function and also made remove function more secure\n");out("SealKernel 11.8.2026 - added talktoseal feature and added head and tail feature\n");out("SealKernel 12.8.2026 - changed how goto, back and where works and also changed user input stuff\n");out("SealKernel 13.8.2026 - making rm more restricted (so system files won't get deleted) and also fixed change directory/path issue\n");out("SealKernel 13.8.2026 More - changed path structure for SealKernel\n");}
+        printf("SealKernel 30.7.2026 - added game10, game9 in progress and tsastream new update.\n");out("SealKernel 31.7.2026 - changed stdio lib to zlio lib.\n");out("SealKernel 1.8.2026 - added date to info and about and also improved tsastream\n");out("SealKernel 5.8.2026 - improved help, bootloader changed, added another text editor, extend execute function to other language and added system function\n");out("SealKernel 9.8.2026 - added history and clear history function and also made remove function more secure\n");out("SealKernel 11.8.2026 - added talktoseal feature and added head and tail feature\n");out("SealKernel 12.8.2026 - changed how goto, back and where works and also changed user input stuff\n");out("SealKernel 13.8.2026 - making rm more restricted (so system files won't get deleted) and also fixed change directory/path issue\n");out("SealKernel 13.8.2026 More - changed path structure for SealKernel\n");out("SealKernel 14.8.2026 - updated all ls functions and also added webip-a function\n");}
     else if (strcmp(cmd, "ls") == 0) {
-        DIR *dir;
-        struct dirent *entry;
+        if(strcmp(arg1, "") == 0){
+            DIR *dir;
+            struct dirent *entry;
     
-        dir = opendir(".");
-        if (dir == NULL){
-            out("errcode 3: file not provided\n");
-            return;
-        }
+            dir = opendir(".");
+            if (dir == NULL){
+                out("errcode 3: file not provided\n");
+                return;
+            }
 
-        while ((entry = readdir(dir)) != NULL){
-            out("%s", entry->d_name);
-            out("\n");
+            while ((entry = readdir(dir)) != NULL){
+                out("%s", entry->d_name);
+                out("\n");
             
+            }
+
+            if (closedir(dir) == -1){
+                out("errcode 3: file not provided\n");
+                return;
+            }
         }
 
-        if (closedir(dir) == -1){
-            out("errcode 3: file not provided\n");
-            return;
+        else{
+            DIR *dir;
+            struct dirent *entry;
+    
+            dir = opendir(arg1);
+            if (dir == NULL){
+                out("errcode 3: file not provided\n");
+                return;
+            }
+
+            while ((entry = readdir(dir)) != NULL){
+                out("%s", entry->d_name);
+                out("\n");
+            
+            }
+
+            if (closedir(dir) == -1){
+                out("errcode 3: file not provided\n");
+                return;
+            }
         }
             
     }
@@ -1289,6 +1488,7 @@ void process_system_command(char *input) {
         out("clear-history - delete previous commands\n");
         out("head - show the first (n) lines of a file\n");
         out("tail - show the last (n) lines of a file\n");
+        out("webip-a - check your IP Adress in the web (DNS)\n");
         
         
         
@@ -3410,6 +3610,25 @@ void process_system_command(char *input) {
         pclose(fp);
     }
 
+    else if (strcmp(cmd, "webip-a") == 0) {
+        char command[256];
+
+        snprintf(command, sizeof(command), "curl -s -L 'http://ifconfig.me/' | sed 's/<[^>]*>//g'");
+    
+        FILE *fp = popen(command, "r");
+        if (!fp) {
+            perror("errcode 23 : failed to find your ip adress");
+            return;
+        }
+    
+        char buffer[256];
+        while (fgets(buffer, sizeof(buffer), fp) != NULL) {
+            printf("%s", buffer);
+        }
+    
+        pclose(fp);
+    }
+
     else if (strcmp(cmd, "clear") == 0){
         out("\033[H\033[J");
     }
@@ -3891,7 +4110,7 @@ int main() {
         fprintf(file, "https://codepad.app/pad/822052z5n");
         fclose(file);
     }
-    out("SealKernel 13.8.2026 More\n");
+    out("SealKernel 14.8.2026\n");
     out("A project by ZileLai\n");
     out("ZL Projects' Website : https://zilelai.lab26.my/\n");
     out("if don't know any command, use 'help'\n");
