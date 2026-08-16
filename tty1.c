@@ -339,9 +339,7 @@ char oripath[1024];
 void get_current_path(int current_loc, const char* filename, char* out_path) {
     size_t max_len = 128;
 
-
-     snprintf(out_path, max_len, "seal/%s", filename); 
- 
+    snprintf(out_path, max_len, "%s/%s", oripath, filename); 
 }
 
 
@@ -516,7 +514,7 @@ void process_system_command(char *input) {
                 strcmp(arg1, "compress.h") == 0 || 
                 strcmp(arg1, "decompress.h") == 0 || 
                 strcmp(arg1, "stb_image.h") == 0 || 
-                strcmp(arg1, "zlio.h") == 0) {
+                strcmp(arg1, "zlio.h") == 0 || strcmp(arg1, "root") == 0) {
                 
                 out("errcode 24: access denied: doing such process is very dangerous\n");
             } 
@@ -680,6 +678,38 @@ void process_system_command(char *input) {
         }
     }
 
+    else if (strcmp(cmd, "exe-shell") == 0) {
+        if (parsed_args < 2) {
+            out("errcode 3: file not provided\n");
+            return; 
+        }
+    
+        strncpy(notes_name, arg1, sizeof(notes_name) - 1);
+        notes_name[sizeof(notes_name) - 1] = '\0';
+    
+        if (notes_mode == 0 && (strcmp(arg1, "code.txt") == 0 || strcmp(arg1, "code.sh") == 0)) {
+            out("errcode 9: permission denied\n");
+            return;
+        }
+
+        for (size_t i = 0; arg1[i] != '\0'; i++) {
+            if (!isalnum((unsigned char)arg1[i]) && arg1[i] != '_' && arg1[i] != '-' && arg1[i] != '.') {
+                out("errcode 25: invalid filename characters\n");
+                return;
+            }
+        }
+
+        char compile[512];
+        size_t len = strlen(arg1);
+        if (len >= 3 && strcmp(arg1 + len - 3, ".sh") == 0) {
+            snprintf(compile, sizeof(compile), "chmod +x %s && ./%s", arg1, arg1);
+        } else {
+            snprintf(compile, sizeof(compile), "chmod +x %s.sh && ./%s.sh", arg1, arg1);
+        }
+    
+        system(compile);
+        out("\n");
+    }
 
     else if (strcmp(cmd, "rnm") == 0) { 
         if (parsed_args < 2) {
@@ -1385,7 +1415,7 @@ void process_system_command(char *input) {
         printf("SealKernel 21.7.2026 - added own package manager from bpm and also fixed Trigraphs error and other warnings\n");
         printf("SealKernel 22.7.2026 - added browser function to show HTML code in website\n");printf("SealKernel 23.7.2026 - added bootloader and function clear\n");printf("SealKernel 26.7.2026 - fixed space and about function and added error code for future purposes\n");
         printf("SealKernel 27.7.2026 - added 2026 next term expectation in beta so students can see their marks and see which class they are going to be in and break their hopes and dreams\n");printf("SealKernel 28.7.2026 - changed entire code structure for tsastream\n");printf("SealKernel 29.7.2026 - added game8 and game9 is in progress\n");
-        printf("SealKernel 30.7.2026 - added game10, game9 in progress and tsastream new update.\n");out("SealKernel 31.7.2026 - changed stdio lib to zlio lib.\n");out("SealKernel 1.8.2026 - added date to info and about and also improved tsastream\n");out("SealKernel 5.8.2026 - improved help, bootloader changed, added another text editor, extend execute function to other language and added system function\n");out("SealKernel 9.8.2026 - added history and clear history function and also made remove function more secure\n");out("SealKernel 11.8.2026 - added talktoseal feature and added head and tail feature\n");out("SealKernel 12.8.2026 - changed how goto, back and where works and also changed user input stuff\n");out("SealKernel 13.8.2026 - making rm more restricted (so system files won't get deleted) and also fixed change directory/path issue\n");out("SealKernel 13.8.2026 More - changed path structure for SealKernel\n");out("SealKernel 14.8.2026 - updated all ls functions and also added webip-a function\n");}
+        printf("SealKernel 30.7.2026 - added game10, game9 in progress and tsastream new update.\n");out("SealKernel 31.7.2026 - changed stdio lib to zlio lib.\n");out("SealKernel 1.8.2026 - added date to info and about and also improved tsastream\n");out("SealKernel 5.8.2026 - improved help, bootloader changed, added another text editor, extend execute function to other language and added system function\n");out("SealKernel 9.8.2026 - added history and clear history function and also made remove function more secure\n");out("SealKernel 11.8.2026 - added talktoseal feature and added head and tail feature\n");out("SealKernel 12.8.2026 - changed how goto, back and where works and also changed user input stuff\n");out("SealKernel 13.8.2026 - making rm more restricted (so system files won't get deleted) and also fixed change directory/path issue\n");out("SealKernel 13.8.2026 More - changed path structure for SealKernel\n");out("SealKernel 14.8.2026 - updated all ls functions and also added webip-a function\n");out("SealKernel 16.8.2026 - added shell execution function\n");}
     else if (strcmp(cmd, "ls") == 0) {
         if(strcmp(arg1, "") == 0){
             DIR *dir;
@@ -1444,6 +1474,7 @@ void process_system_command(char *input) {
         out("exe-python - execute py3 file\n");
         out("exe-java - execute java file\n");
         out("exe-asm - execute assembly file\n");
+        out("exe-shell - execute shell file\n");
         out("rnm - rename a file to another name\n");
         out("mkdir - make a directory\n");
         out("ls-t - list types of files\n");
