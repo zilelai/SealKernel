@@ -1,5 +1,10 @@
 //COPYLEFT FROM ZILELAI/ZL PROJECTS 2026
 //THIS FILE IS LICENSED BY GNU 3.0 LICENSE IN GITHUB
+
+//UPDATE THE VERSION HERE!!!!!!!
+char version [] = "SealKernel 17.8.2026";
+
+
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -15,6 +20,9 @@
 #include <ctype.h>
 #include "zlio.h"
 #include <errno.h>
+#include <termios.h>
+#include <stdbool.h>
+#include <cmath>
 
 #ifdef _WIN32
     #include <direct.h>
@@ -35,6 +43,7 @@
 #endif
 #define MAX 10000
 #define MIN 256
+
 
 
 void charoutput(char c) {
@@ -514,7 +523,13 @@ void process_system_command(char *input) {
                 strcmp(arg1, "compress.h") == 0 || 
                 strcmp(arg1, "decompress.h") == 0 || 
                 strcmp(arg1, "stb_image.h") == 0 || 
-                strcmp(arg1, "zlio.h") == 0 || strcmp(arg1, "root") == 0) {
+                strcmp(arg1, "zlio.h") == 0 || 
+                strcmp(arg1, "root") == 0 || 
+                strcmp(arg1, "text.text") == 0 || 
+                strcmp(arg1, "seal.text") == 0 || 
+                strcmp(arg1, "bootloader") == 0 || 
+                strcmp(arg1, "tty1") == 0 || 
+                strcmp(arg1, "tty2") == 0) {
                 
                 out("errcode 24: access denied: doing such process is very dangerous\n");
             } 
@@ -1188,6 +1203,11 @@ void process_system_command(char *input) {
             }
         }
     }
+    
+    
+    
+    
+    
     else if (strcmp(cmd, "r") == 0) {
         if (parsed_args < 2) {
             out("errcode 3: file not provided\n");
@@ -1284,7 +1304,7 @@ void process_system_command(char *input) {
             printf("       ....:::::^^^~~^^^:^~ : ^:::^^.......       \n");
             printf("                   .......^:~^~~^^.               \n");
             printf("\n");
-            printf("SealKernel 14.4.2026\n");
+            printf("%s\n", version);
             printf("Code Env.: VM\n");
             printf("Code Env. 2: CodePad\n");
             printf("Code: C, C++\n");
@@ -1322,7 +1342,7 @@ void process_system_command(char *input) {
         
             
         
-            printf("SealKernel 14.8.2026\n");
+            printf("%s\n", version);
             printf("Code Env.: VM\n");
             printf("Code Env. 2: CodePad\n");
             printf("Code: C, C++\n");
@@ -1407,7 +1427,7 @@ void process_system_command(char *input) {
         }
     }
     else if (strcmp(cmd, "version") == 0) {
-        out("SealKernel 14.8.2026\n");
+        out("%s\n", version);
     }
     else if (strcmp(cmd, "release") == 0){
         printf("SealKernel 10 - can check size of variable class and can check version and release.\n");printf("SealKernel 11 - added curl to grab data from one site and added fast OS specification.\n");printf("SealKernel 12 [BETA] - added tsastream command to check streaming marks for TSIS student\n");printf("SealKernel 13 - Added calculator function andd improved tsastream\n"); printf("SealKernel 14 [BETA] - added tic tac toe game\n");printf("SealKernel 15 - added check storage in main.cpp\n");printf("SealKernel 16 - added check storage in main.cpp inside quick and about and removed TIC TAC TOE for ROCK PAPER SCISSORS game\n");printf("SealKernel 17 - fixed rock paper scissors game and added guess the number game\n"); printf ("SealKernel 18 - changed file locations and changed space-main.cpp to space. Also fixed game1\n");printf("SealKernel 19 - added game3 and game4 and also restricted exit command only for sudo user\n");printf("SealKernel 20 - added dice feature\n");printf("SealKernel 21 - fixed tsastream and removed quick and about for monthly cleaning (July)\n");    printf("SealKernel 22 - Improved tsastream\n");printf("SealKernel 23 - added luck program, element program and game5. Also improved pad function\n");printf("SealKernel 24 - added speed reaction game\n");printf("SealKernel 25 - Added conquer country game and also added bool. Also addded more space function (check out in help)\n");printf("SealKernel 26 - changed entire ls family, changed file structure\n");printf("SealKernel 27 - changed entire code structure of calculator\n");printf("SealKernel 28 - added move function and changed execute function\n");printf("SealKernel 16.7.2026 - changed version name from 28 to 16.7.2026 to indicate when was the version released, added more file for different purposes and also added image function. Finally, we also added file space for them\n");printf("SealKernel 17.7.2026 - added words, phrase and essay function\n");printf("SealKernel 19.7.2026 - prevent overflowing values for tsastream\n");printf("SealKernel 19.7.2026 More - created users function\n");
@@ -1415,7 +1435,8 @@ void process_system_command(char *input) {
         printf("SealKernel 21.7.2026 - added own package manager from bpm and also fixed Trigraphs error and other warnings\n");
         printf("SealKernel 22.7.2026 - added browser function to show HTML code in website\n");printf("SealKernel 23.7.2026 - added bootloader and function clear\n");printf("SealKernel 26.7.2026 - fixed space and about function and added error code for future purposes\n");
         printf("SealKernel 27.7.2026 - added 2026 next term expectation in beta so students can see their marks and see which class they are going to be in and break their hopes and dreams\n");printf("SealKernel 28.7.2026 - changed entire code structure for tsastream\n");printf("SealKernel 29.7.2026 - added game8 and game9 is in progress\n");
-        printf("SealKernel 30.7.2026 - added game10, game9 in progress and tsastream new update.\n");out("SealKernel 31.7.2026 - changed stdio lib to zlio lib.\n");out("SealKernel 1.8.2026 - added date to info and about and also improved tsastream\n");out("SealKernel 5.8.2026 - improved help, bootloader changed, added another text editor, extend execute function to other language and added system function\n");out("SealKernel 9.8.2026 - added history and clear history function and also made remove function more secure\n");out("SealKernel 11.8.2026 - added talktoseal feature and added head and tail feature\n");out("SealKernel 12.8.2026 - changed how goto, back and where works and also changed user input stuff\n");out("SealKernel 13.8.2026 - making rm more restricted (so system files won't get deleted) and also fixed change directory/path issue\n");out("SealKernel 13.8.2026 More - changed path structure for SealKernel\n");out("SealKernel 14.8.2026 - updated all ls functions and also added webip-a function\n");out("SealKernel 16.8.2026 - added shell execution function\n");}
+        printf("SealKernel 30.7.2026 - added game10, game9 in progress and tsastream new update.\n");out("SealKernel 31.7.2026 - changed stdio lib to zlio lib.\n");out("SealKernel 1.8.2026 - added date to info and about and also improved tsastream\n");out("SealKernel 5.8.2026 - improved help, bootloader changed, added another text editor, extend execute function to other language and added system function\n");out("SealKernel 9.8.2026 - added history and clear history function and also made remove function more secure\n");out("SealKernel 11.8.2026 - added talktoseal feature and added head and tail feature\n");out("SealKernel 12.8.2026 - changed how goto, back and where works and also changed user input stuff\n");out("SealKernel 13.8.2026 - making rm more restricted (so system files won't get deleted) and also fixed change directory/path issue\n");out("SealKernel 13.8.2026 More - changed path structure for SealKernel\n");out("SealKernel 14.8.2026 - updated all ls functions and also added webip-a function\n");out("SealKernel 16.8.2026 - added shell execution function\n");
+        out("SealKernel 17.8.2026 - Added game11 and added remainder function\n");}
     else if (strcmp(cmd, "ls") == 0) {
         if(strcmp(arg1, "") == 0){
             DIR *dir;
@@ -1575,6 +1596,7 @@ void process_system_command(char *input) {
         out("game8 - lamp guessing game\n");
         out("game9 - text sniping rpg game\n");
         out("game10 - avoid the chosen number game\n");
+        out("game11 - Madlibs game\n");
     }
     else if (strcmp(cmd, "echo") == 0) {
         out("%s\n", input + (strlen(input) > 4 ? 5 : 0));
@@ -2226,37 +2248,54 @@ void process_system_command(char *input) {
     }
     else if (strcmp(cmd, "calc") == 0) {
         double output;
+        bool remainder;
         out("Before procedding, if u want to calculate roots, the big number is the first number and the root is the second number. Same applies to powers.\n");
-        out("Enter your case: (+, -, *, /, 'R' for roots, ^ for powers)\n");
+        out("Enter your case: (+, -, *, /, 'R' for roots, '^' for powers, '%' for remainders)\n");
+
         in("", &op);
         out("Enter your first number:\n");
         in("", &firstnum);
-        out("Enter your second number:\n");
-        in("", &secondnum);
+        if(op == '%'){}
+
+        else{
+            out("Enter your second number:\n");
+            in("", &secondnum);
+        }
+        
 
         if (op == '+'){
             double output = firstnum + secondnum;
-            out("%lf\n", output);
+            printf("%lf\n", output);
         }
         else if (op == '-'){
             double output = firstnum - secondnum;
-            out("%lf\n", output);
+            printf("%lf\n", output);
         }
         else if (op == '*'){
             double output = firstnum * secondnum;
-            out("%lf\n", output);
+            printf("%lf\n", output);
         }
         else if (op == '/'){
             double output = firstnum / secondnum;
-            out("%lf\n", output);
+            printf("%lf\n", output);
         }
         else if (op == '^'){
             double output = pow(firstnum, secondnum);
-            out("%lf\n", output);
+            printf("%lf\n", output);
         }
         else if (op == 'R'){
             double output = pow(firstnum, 1.0 / secondnum);
-            out("%lf\n", output);
+            printf("%lf\n", output);
+        }
+
+        else if (op == '%'){
+            bool output = fmod(firstnum, 2.0) != 0.0;
+            if (output == 0){
+                printf("%.0lf is even number\n", firstnum);
+            }
+            else{
+                printf("%.0lf is odd number\n", firstnum);
+            }
         }
         else{
             out("errcode 15 : operator not found");
@@ -2264,7 +2303,7 @@ void process_system_command(char *input) {
     }
 
     else if (strcmp(cmd, "version-calc") == 0){
-        out("Calc Function by ZileLai - Version 2.1.0\n");
+        out("Calc Function by ZileLai - Version 2.2.0\n");
     }
     
 
@@ -4104,7 +4143,68 @@ void process_system_command(char *input) {
             }
         }
     }
-    
+
+    else if (strcmp(cmd, "game11") == 0){
+        char one[128];
+        char two[128];
+        char three[128];
+        char four[128];
+        char five[128];
+        char six[128];
+        char seven[128];
+        char eight[128];
+        char nine[128];
+        char ten[128];
+        char eleven[128];
+        char twelve[128];
+        out("Madlibs Game!!\n");
+        out("By Rubixmaster123 on CodePad, written in Python\n");
+        out("This version in SealKernel was written in C with ZLIO functions\n");
+        out("Now, Do the following input: \n");
+        out("Name: ");
+        in("", one);
+        out("Animal: ");
+        in("", two);
+        out("Colour: ");
+        in("", three);
+        out("Verb that is a past tense (ed ending): ");
+        in("", four);
+        out("A noun: ");
+        in("", five);
+        out("A type of building: ");
+        in("", six);
+        out("Location in %s: ", six);
+        in("", seven);
+        out("A verb that is present or past continous (ing ending): ");
+        in("", eight);
+        out("Biome: ");
+        in("", nine);
+        out("Animal: ");
+        in("", ten);
+        out("Name: ");
+        in("", eleven);
+        out("Food: ");
+        in("", twelve);
+
+        out("So you and your friend %s are going on an adventure. You start your adventure by a near by forest, where you find a %s wandering around. For some reason the %s suddenly turned %s! How weird! The %s %s came up to you and %s, then suddenly %s away. You and %s wanted to investigate, so you followed the weird %s when suddenly you tripped over a %s. When you got up, you saw the %s go into a %s, and when you and %s got into the %s you saw the %s go into the %s. You and %s went into the %s and saw the %s %s outside through a open window! You and %s crawled through the open window and the %s was running towards a %s. You and %s followed it into the %s and saw it, but then something weird happened. The %s suddenly trasformed into a %s! suddenly the %s that used to be a %s spoke in english and said it's name is %s. Suddenly, with a snap of it's fingers, %s made %s appear out of nowhere and then started eating it! What a weird adventure!\n",one, two, two, three, three, two, one, four, one, two, five, two, six, one, six, two, seven, one, seven, two, eight, one, two, nine, one, nine, two, ten, ten, two, eleven, eleven, twelve);
+
+    }
+
+//1, 2, 2, 3, 3, 2, 1, 4, 1, 2, 5, 2, 6, 1, 6, 2, 7, 1, 7, 2, 8, 1, 2, 9, 1, 9, 2, 10, 10, 2, 11, 11, 12
+//name
+//animal
+//colour
+//ed
+//noun
+//building
+//6
+//ing
+//biome
+//animal
+//name
+//food
+//So you and your friend {one} are going on an adventure. You start your adventure by a near by forest, where you find a {two} wandering around. For some reason the {two} suddenly turned {three}! How wierd! The {three} {two} came up to you and {one}, then suddenly {four} away. You and {one} wanted to investigate, so you followed the wierd {two} when suddenly you tripped over a {five}. When you got up, you saw the {two} go into a {six}, and when you and {one} got into the {six} you saw the {two} go into the {seven}. You and {one} went into the {seven} and saw the {two} {eight} outside through a open window! You and {one} crawled through the open window and the {two} was running towards a {nine}. You and {one} followed it into the {nine} and saw it, but then something wierd happened. The {two} suddenly trasformed into a {ten}! suddenly the {ten} that used to be a {two} spoke in english and said it's name is {eleven}. Suddenly, with a snap of it's fingers, {eleven} made {twelve} appear out of nowhere and then started eating it! What a wierd adventure!
+
     
 
     
@@ -4141,7 +4241,7 @@ int main() {
         fprintf(file, "https://codepad.app/pad/822052z5n");
         fclose(file);
     }
-    out("SealKernel 14.8.2026\n");
+    out("%s\n", version);
     out("A project by ZileLai\n");
     out("ZL Projects' Website : https://zilelai.lab26.my/\n");
     out("if don't know any command, use 'help'\n");
