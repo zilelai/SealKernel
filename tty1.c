@@ -4215,7 +4215,7 @@ void process_system_command(char *input) {
     }
 
     else {
-        out("errcode 1 : command not found\n");
+        out("errcode 1 : command '%s' not found\n", cmd);
     }
 
     FILE *fptr = fopen("qubabasdwiaisd.txt", "a+");
