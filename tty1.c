@@ -2,9 +2,13 @@
 //THIS FILE IS LICENSED BY GNU 3.0 LICENSE IN GITHUB
 
 //UPDATE THE VERSION HERE!!!!!!!
-char version [] = "SealKernel 17.8.2026";
+char version [] = "SealKernel 18.8.2026";
 
 
+
+//LIBRARIES
+#include <iostream>
+using namespace std;
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -23,6 +27,8 @@ char version [] = "SealKernel 17.8.2026";
 #include <termios.h>
 #include <stdbool.h>
 #include <cmath>
+#include <fstream>
+
 
 #ifdef _WIN32
     #include <direct.h>
@@ -45,7 +51,7 @@ char version [] = "SealKernel 17.8.2026";
 #define MIN 256
 
 
-
+//ZLIO Implementations
 void charoutput(char c) {
     write(STDOUT_FILENO, &c, 1);
 }
@@ -59,6 +65,8 @@ void stroutput(const char *str, int *count) {
     }
 }
 
+
+//tags to see if you are running in Linux or Windows or Other OS
 #if defined(__linux__)
 void tagged() {
     out("linux\n");
@@ -74,7 +82,7 @@ void tagged() {
 #endif
 
 
-
+//More ZLIO Implementation
 static void intoutput(int n, int *count) {
     char buf[32];
     int i = 0;
@@ -268,6 +276,7 @@ void instr(const char *prompt, char *outval) {
     }
 }
 
+//check filesize
 void filesize(const char *label, const char *filename) {
     FILE *fp = fopen(filename, "rb");
 
@@ -283,6 +292,7 @@ void filesize(const char *label, const char *filename) {
     fclose(fp);
 }
 
+//package manager
 int pkgdownload(const char *url) {
     const char *filename = strrchr(url, '/');
     if (filename) {
@@ -320,6 +330,8 @@ size_t write_callback(void *contents, size_t size, size_t nmemb, void *userp) {
     return realsize;
 }
 
+
+//variables
 char op;
 double firstnum;
 double secondnum;
@@ -344,7 +356,7 @@ char oripath[1024];
 
 
 
-
+//get where to put the file in
 void get_current_path(int current_loc, const char* filename, char* out_path) {
     size_t max_len = 128;
 
@@ -352,7 +364,7 @@ void get_current_path(int current_loc, const char* filename, char* out_path) {
 }
 
 
-
+//rock paper scissors game
 int game(char player, char bot){
     if (player == bot){
         return -1;
@@ -382,6 +394,7 @@ int game(char player, char bot){
     return -1;
 }
 
+//compressor implementation
 int compressor(const char *inputfile, const char *outputfile)
 {
     FILE *in = fopen(inputfile, "rb");
@@ -431,6 +444,8 @@ int compressor(const char *inputfile, const char *outputfile)
     return 0;
 }
 
+
+//decompress implementation file
 int decompress(const char *input_file, const char *output_file)
 {
     FILE *in = fopen(input_file, "rb");
@@ -482,10 +497,14 @@ int decompress(const char *input_file, const char *output_file)
     return 0;
 }
 
+//first it checks where first to get the home location
 void original_path(){
     if (getcwd(oripath, sizeof(oripath)) != NULL) {}
 }
 
+
+
+//commands
 void process_system_command(char *input) {
     time_t currentTime;
     char content[256];
@@ -496,11 +515,17 @@ void process_system_command(char *input) {
     input[strcspn(input, "\n")] = 0;
     if (strlen(input) == 0) return;
 
+
+
+    //command variables
     char cmd[20] = "";
     char arg1[64] = "";
     char arg2[64] = "";
     int parsed_args = sscanf(input, "%s %s %s", cmd, arg1, arg2);
 
+
+
+    //chmod
     if (strcmp(cmd, "chmod") == 0) {
         if (parsed_args < 3) {
             out("errcode 7 : only 0 and 1 are allowed\n");
@@ -511,6 +536,9 @@ void process_system_command(char *input) {
             out("changed\n");
         }
     }
+
+
+    //rm
     else if (strcmp(cmd, "rm") == 0) {
         if (parsed_args < 2) {
             out("errcode 3: file not provided\n");
@@ -553,6 +581,8 @@ void process_system_command(char *input) {
     }
     
 
+
+    //mv
     else if (strcmp(cmd, "mv") == 0) {
         char o[128];
         char n[128];
@@ -567,6 +597,9 @@ void process_system_command(char *input) {
             perror("errcode 3: file not provided\n");
         }
     }
+
+
+    //save
 
     else if (strcmp(cmd, "save") == 0) {
         if (parsed_args < 2) {
@@ -596,6 +629,8 @@ void process_system_command(char *input) {
             }
         }
     }
+
+    //exe-c
     else if (strcmp(cmd, "exe") == 0) {
         if (parsed_args >= 2) {
             strncpy(notes_name, arg1, sizeof(notes_name) - 1);
@@ -615,6 +650,32 @@ void process_system_command(char *input) {
         }
     }
 
+
+    //exe-cpp
+    else if (strcmp(cmd, "exe-cpp") == 0) {
+        if (parsed_args >= 2) {
+            strncpy(notes_name, arg1, sizeof(notes_name) - 1);
+            notes_name[sizeof(notes_name) - 1] = '\0';
+        } else {
+            out("errcode 3: file not provided\n");
+            return; 
+        }
+
+        if (notes_mode == 0 && (strcmp(arg1, "code.txt") == 0 || strcmp(arg1, "code.c") == 0)) {
+            out("errcode 9 : permission denied \n");
+        } else {
+            char compile[512];
+            snprintf(compile, sizeof(compile), "g++ %s -o main && ./main", arg1);
+            system(compile);
+            out("\n");
+        }
+    }
+
+
+
+
+
+    //exe-python
     else if (strcmp(cmd, "exe-python") == 0) {
         if (parsed_args >= 2) {
             strncpy(notes_name, arg1, sizeof(notes_name) - 1);
@@ -637,6 +698,9 @@ void process_system_command(char *input) {
         }
     }
 
+
+
+    //exe-java
     else if (strcmp(cmd, "exe-java") == 0) {
         if (parsed_args >= 2) {
             strncpy(notes_name, arg1, sizeof(notes_name) - 1);
@@ -665,6 +729,9 @@ void process_system_command(char *input) {
         }
     }
 
+
+
+    //exe-asm x86-64
     else if (strcmp(cmd, "exe-asm") == 0) {
         if (parsed_args >= 2) {
             strncpy(notes_name, arg1, sizeof(notes_name) - 1);
@@ -693,6 +760,9 @@ void process_system_command(char *input) {
         }
     }
 
+
+
+    //exe-shell
     else if (strcmp(cmd, "exe-shell") == 0) {
         if (parsed_args < 2) {
             out("errcode 3: file not provided\n");
@@ -726,6 +796,9 @@ void process_system_command(char *input) {
         out("\n");
     }
 
+
+    //rnm
+
     else if (strcmp(cmd, "rnm") == 0) { 
         if (parsed_args < 2) {
             out("errcode 3: file not provided\n");
@@ -756,6 +829,10 @@ void process_system_command(char *input) {
             }
         }
     }
+
+
+
+    //mkdir
     else if (strcmp(cmd, "mkdir") == 0) { 
         if (parsed_args < 2) {
             out("errcode 3: file not provided\n");
@@ -826,6 +903,10 @@ void process_system_command(char *input) {
             }
         }
     }
+
+
+
+    //ls-d
     else if (strcmp(cmd, "ls-d") == 0) {
         if(strcmp(arg1, "") == 0){
             DIR *dir;
@@ -913,6 +994,9 @@ void process_system_command(char *input) {
         }
     }
 
+
+
+    //ls-dt
     else if (strcmp(cmd, "ls-dt") == 0) {
         if(strcmp(arg1, "") == 0){
             DIR *dir;
@@ -1014,6 +1098,9 @@ void process_system_command(char *input) {
         }
     }
 
+
+
+    //ls-td (same as ls-dt)
     else if (strcmp(cmd, "ls-td") == 0) {
         if(strcmp(arg1, "") == 0){
             DIR *dir;
@@ -1115,6 +1202,10 @@ void process_system_command(char *input) {
         }
     }
 
+
+
+
+    //w
     else if (strcmp(cmd, "w") == 0) { 
         if (parsed_args >= 2) {
             strcpy(notes_name, arg1);
@@ -1141,6 +1232,10 @@ void process_system_command(char *input) {
         }
     }
 
+
+
+
+    //pen
     else if (strcmp(cmd, "pen") == 0) { 
         if (parsed_args >= 2) {
             strcpy(notes_name, arg1);
@@ -1167,6 +1262,10 @@ void process_system_command(char *input) {
         }
     }
 
+
+
+
+    //pad
     else if (strcmp(cmd, "pad") == 0) { 
         if (parsed_args >= 2) {
             strcpy(notes_name, arg1);
@@ -1207,7 +1306,7 @@ void process_system_command(char *input) {
     
     
     
-    
+    //r
     else if (strcmp(cmd, "r") == 0) {
         if (parsed_args < 2) {
             out("errcode 3: file not provided\n");
@@ -1232,6 +1331,9 @@ void process_system_command(char *input) {
         }
     }
 
+
+
+    //head
     else if (strcmp(cmd, "head") == 0) {
         if (parsed_args < 2) {
             out("errcode 3: file not provided\n");
@@ -1260,6 +1362,9 @@ void process_system_command(char *input) {
         }
     }
 
+
+
+    //tail
     else if (strcmp(cmd, "tail") == 0) {
         if (parsed_args < 2) {
             out("errcode 3: file not provided\n");
@@ -1288,6 +1393,8 @@ void process_system_command(char *input) {
         }
     }
 
+
+    //system stuff
     else if (strcmp(cmd, "info") == 0) {
 
         printf("                 ..^~:::::::::::....              \n");
@@ -1360,6 +1467,8 @@ void process_system_command(char *input) {
             tagged();
         }
 
+
+        //system info's versions
     else if (strcmp(cmd, "version-about") == 0){
         out("About Function - Version 1.5.0\n");
     }
@@ -1367,7 +1476,7 @@ void process_system_command(char *input) {
         out("About Function - Version 2.2.0\n");
     }
         
-            
+    //variable sizes    
     else if (strcmp(cmd, "sizeofint") == 0){
         out("%zu\n", sizeof(q));
     }
@@ -1392,6 +1501,9 @@ void process_system_command(char *input) {
         }
     }
 
+
+
+    //sudo stuff
     else if (strcmp(cmd, "sudo-on") == 0){
 
         if (strcmp(users, "seal") != 0){
@@ -1411,9 +1523,14 @@ void process_system_command(char *input) {
         chdir("../");
         out("normal mode\n");
     }
+
+
+    //go back up 1 dir
     else if (strcmp(cmd, "back") == 0) {
         chdir("../");
     }
+
+    //see where you are
     else if (strcmp(cmd, "where") == 0) {
         
         if (getcwd(cwd, sizeof(cwd)) != NULL) {
@@ -1426,9 +1543,18 @@ void process_system_command(char *input) {
             perror("errcode 13 : could not open file");
         }
     }
+
+
+
+    //version info
     else if (strcmp(cmd, "version") == 0) {
         out("%s\n", version);
     }
+
+
+
+
+    //details for the latest version
     else if (strcmp(cmd, "release") == 0){
         printf("SealKernel 10 - can check size of variable class and can check version and release.\n");printf("SealKernel 11 - added curl to grab data from one site and added fast OS specification.\n");printf("SealKernel 12 [BETA] - added tsastream command to check streaming marks for TSIS student\n");printf("SealKernel 13 - Added calculator function andd improved tsastream\n"); printf("SealKernel 14 [BETA] - added tic tac toe game\n");printf("SealKernel 15 - added check storage in main.cpp\n");printf("SealKernel 16 - added check storage in main.cpp inside quick and about and removed TIC TAC TOE for ROCK PAPER SCISSORS game\n");printf("SealKernel 17 - fixed rock paper scissors game and added guess the number game\n"); printf ("SealKernel 18 - changed file locations and changed space-main.cpp to space. Also fixed game1\n");printf("SealKernel 19 - added game3 and game4 and also restricted exit command only for sudo user\n");printf("SealKernel 20 - added dice feature\n");printf("SealKernel 21 - fixed tsastream and removed quick and about for monthly cleaning (July)\n");    printf("SealKernel 22 - Improved tsastream\n");printf("SealKernel 23 - added luck program, element program and game5. Also improved pad function\n");printf("SealKernel 24 - added speed reaction game\n");printf("SealKernel 25 - Added conquer country game and also added bool. Also addded more space function (check out in help)\n");printf("SealKernel 26 - changed entire ls family, changed file structure\n");printf("SealKernel 27 - changed entire code structure of calculator\n");printf("SealKernel 28 - added move function and changed execute function\n");printf("SealKernel 16.7.2026 - changed version name from 28 to 16.7.2026 to indicate when was the version released, added more file for different purposes and also added image function. Finally, we also added file space for them\n");printf("SealKernel 17.7.2026 - added words, phrase and essay function\n");printf("SealKernel 19.7.2026 - prevent overflowing values for tsastream\n");printf("SealKernel 19.7.2026 More - created users function\n");
         printf("SealKernel 20.7.2026 - Changed input for user and also restricted normal user to root user so they cannot control the system and also added compress and decompress function\n");
@@ -1436,7 +1562,13 @@ void process_system_command(char *input) {
         printf("SealKernel 22.7.2026 - added browser function to show HTML code in website\n");printf("SealKernel 23.7.2026 - added bootloader and function clear\n");printf("SealKernel 26.7.2026 - fixed space and about function and added error code for future purposes\n");
         printf("SealKernel 27.7.2026 - added 2026 next term expectation in beta so students can see their marks and see which class they are going to be in and break their hopes and dreams\n");printf("SealKernel 28.7.2026 - changed entire code structure for tsastream\n");printf("SealKernel 29.7.2026 - added game8 and game9 is in progress\n");
         printf("SealKernel 30.7.2026 - added game10, game9 in progress and tsastream new update.\n");out("SealKernel 31.7.2026 - changed stdio lib to zlio lib.\n");out("SealKernel 1.8.2026 - added date to info and about and also improved tsastream\n");out("SealKernel 5.8.2026 - improved help, bootloader changed, added another text editor, extend execute function to other language and added system function\n");out("SealKernel 9.8.2026 - added history and clear history function and also made remove function more secure\n");out("SealKernel 11.8.2026 - added talktoseal feature and added head and tail feature\n");out("SealKernel 12.8.2026 - changed how goto, back and where works and also changed user input stuff\n");out("SealKernel 13.8.2026 - making rm more restricted (so system files won't get deleted) and also fixed change directory/path issue\n");out("SealKernel 13.8.2026 More - changed path structure for SealKernel\n");out("SealKernel 14.8.2026 - updated all ls functions and also added webip-a function\n");out("SealKernel 16.8.2026 - added shell execution function\n");
-        out("SealKernel 17.8.2026 - Added game11 and added remainder function\n");}
+        out("SealKernel 17.8.2026 - Added game11 and added remainder function\n");
+        out("SealKernel 18.8.2026 - Added game12/varlab , added update-sudd and added cc functions\n");}
+
+
+
+
+        //ls function
     else if (strcmp(cmd, "ls") == 0) {
         if(strcmp(arg1, "") == 0){
             DIR *dir;
@@ -1483,6 +1615,10 @@ void process_system_command(char *input) {
         }
             
     }
+
+
+
+    //help
     else if (strcmp(cmd, "help") == 0) {
         out("SealKernel Functions:\n");
         out("1. System functions:\n");
@@ -1534,6 +1670,7 @@ void process_system_command(char *input) {
         out("available - print out active users\n");
         out("available-t - print out active users in detail\n");
         out("version-zlio - shows the version of SealKernel's own IO library\n");
+        out("update-sudd - shows the version of SealKernel User Directory Design (SUDD)\n");
         out("system - shows what OS you are running\n");
         out("sudo-exit - shut down / exit this program\n");
         out("history - check previous commands\n");
@@ -1541,6 +1678,8 @@ void process_system_command(char *input) {
         out("head - show the first (n) lines of a file\n");
         out("tail - show the last (n) lines of a file\n");
         out("webip-a - check your IP Adress in the web (DNS)\n");
+        out("wc - check word count\n");
+        out("cc - check character count\n");
         
         
         
@@ -1597,11 +1736,20 @@ void process_system_command(char *input) {
         out("game9 - text sniping rpg game\n");
         out("game10 - avoid the chosen number game\n");
         out("game11 - Madlibs game\n");
+        out("game12/varlab - variable game\n");
     }
+
+
+
+    //echo
     else if (strcmp(cmd, "echo") == 0) {
         out("%s\n", input + (strlen(input) > 4 ? 5 : 0));
     }
 
+
+
+
+    //tsastream
     else if (strcmp(cmd, "tsastream") == 0) {
         
         double math;
@@ -1905,6 +2053,9 @@ void process_system_command(char *input) {
         
     }
 
+
+
+    //freedom of tsastream
     else if (strcmp(cmd, "tsastream-free") == 0) {
         
         double math;
@@ -2208,14 +2359,23 @@ void process_system_command(char *input) {
         }
         
     }
+
+
+    //date now
     else if (strcmp(cmd, "date") == 0) {
         time(&currentTime); 
         out("%s", ctime(&currentTime));
     }
     
+
+
+    //random stuff
     else if (strcmp(cmd, "random") == 0) {
         out("%d\n", rand());
     }
+
+
+    //lemon ASCII art
     else if (strcmp(cmd, "lemon") == 0) {
         out(R"(..................................................
             ...........:::^^~~~~~~~~~^^::.....................
@@ -2235,6 +2395,9 @@ void process_system_command(char *input) {
             ...........::^~!!!!777777777???????????!:.........
             )");
     }
+
+
+    //eggs ASCII art
     else if (strcmp(cmd, "eggs") == 0) {
         out("                              \n"
                "            .::.              \n"
@@ -2246,6 +2409,9 @@ void process_system_command(char *input) {
                "    ..^!?YYJJ7^..::^:..       \n"
                "     .:^~!77!^:...            \n");
     }
+
+
+    //calc
     else if (strcmp(cmd, "calc") == 0) {
         double output;
         bool remainder;
@@ -2302,11 +2468,16 @@ void process_system_command(char *input) {
         }
     }
 
+
+
+    //version of calculator function
     else if (strcmp(cmd, "version-calc") == 0){
         out("Calc Function by ZileLai - Version 2.2.0\n");
     }
     
 
+
+    //spaces
     else if (strcmp(cmd, "space") == 0) {
         filesize("tty1.cpp", "tty1.cpp");
     }
@@ -2342,6 +2513,9 @@ void process_system_command(char *input) {
         }
     }
 
+
+
+    //game1 game
     else if (strcmp(cmd, "game1") == 0){
         int n = rand() % 3;
         char player, bot, result;
@@ -2378,6 +2552,8 @@ void process_system_command(char *input) {
     
     }
 
+
+        //game2 game
     else if (strcmp(cmd, "game2") == 0){
         int n = rand() % 50;
         srand(time(NULL));
@@ -2392,6 +2568,9 @@ void process_system_command(char *input) {
         }
     }
 
+
+
+        //game3 game
     else if (strcmp(cmd, "game3") == 0){
         int input;
         out("Flag Capture\n");
@@ -2675,6 +2854,9 @@ void process_system_command(char *input) {
         
     }
 
+
+
+    //game4 game
     else if (strcmp(cmd, "game4") == 0) {
         int input;
         out("Gun Game\n");
@@ -2791,12 +2973,18 @@ void process_system_command(char *input) {
         
     }
 
+
+
+    //dice (0-6)
     else if (strcmp(cmd, "dice") == 0){
         int n = rand() % 6;
         srand(time(NULL));
         out ("%d\n", n);
     }
 
+
+
+    //game6 game
     else if (strcmp(cmd, "game6") == 0) {
         srand(time(NULL));
         int n = rand() % 9; 
@@ -2814,8 +3002,10 @@ void process_system_command(char *input) {
         }
     }
 
+
+    //luck program
     else if (strcmp(cmd, "luck") == 0){
-        int n = rand() % 10;
+        int n = rand() % 11;
         srand(time(NULL));
         if (n == 0){
             out("NO LUCK\n");
@@ -2852,6 +3042,9 @@ void process_system_command(char *input) {
         }
     }
 
+
+
+        //game5 game
     else if (strcmp(cmd, "game5") == 0){
         int input;
         srand(time(NULL));
@@ -2871,6 +3064,9 @@ void process_system_command(char *input) {
         }
     }
 
+
+
+        //game7 game
     else if (strcmp(cmd, "game7") == 0){
         int input;
         out("You are a country\n");
@@ -3013,6 +3209,10 @@ void process_system_command(char *input) {
     }
 
 
+
+
+    //elements program
+
     else if (strcmp(cmd, "elements") == 0){
         srand(time(NULL));
         int n = rand() % 119;
@@ -3138,11 +3338,17 @@ void process_system_command(char *input) {
         out("\n");
     }
 
+
+
+    //bool program
     else if (strcmp(cmd, "bool") == 0){
         srand(time(NULL));
         int n = rand() % 2;
         out("%d\n", n);
     }
+
+
+    //image program
 
     else if (strcmp(cmd, "image") == 0) { 
         char chars[] = "`^\",:;Il!i~+_-?][}(1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao#MW&8%B@S";
@@ -3192,6 +3398,9 @@ void process_system_command(char *input) {
         }
     }
 
+
+
+    //phrase program
     else if (strcmp(cmd, "phrase") == 0) {
         FILE *fptr = fopen("./text.text", "r");
         if (!fptr) {
@@ -3253,6 +3462,10 @@ void process_system_command(char *input) {
         free(lines);
     }
 
+
+
+    //words program
+
     else if (strcmp(cmd, "words") == 0) {
         FILE *fptr = fopen("./text.text", "r");
         if (!fptr) {
@@ -3313,6 +3526,9 @@ void process_system_command(char *input) {
 
         free(lines);
     }
+
+
+    //talktoseal english
 
     else if (strcmp(cmd, "talktoseal-human") == 0) {
 
@@ -3385,6 +3601,11 @@ void process_system_command(char *input) {
         free(lines);
     }
 
+
+
+
+    //talktoseal seal
+
     else if (strcmp(cmd, "talktoseal") == 0) {
 
         char input [128];
@@ -3456,6 +3677,9 @@ void process_system_command(char *input) {
         free(lines);
     }
 
+
+    //essay program
+
     else if (strcmp(cmd, "essay") == 0) {
         FILE *fptr = fopen("./text.text", "r");
         if (!fptr) {
@@ -3517,6 +3741,8 @@ void process_system_command(char *input) {
         free(lines);
     }
 
+
+    //users program
     else if (strcmp(cmd, "users") == 0) {
         char userpath[512];
         
@@ -3538,6 +3764,9 @@ void process_system_command(char *input) {
             out("errcode 19 : user input failed\n");
         }
     }
+
+
+    //users go back to seal user
     
     else if (strcmp(cmd, "users-seal") == 0) {
         char userpath[512];
@@ -3552,9 +3781,13 @@ void process_system_command(char *input) {
     }
     
 
+    //who am i???
+
     else if (strcmp(cmd, "whoami") == 0) {
         out("%s\n", users);
     }
+
+    //available users
 
     else if (strcmp(cmd, "available") == 0){
         out("root, ");
@@ -3567,6 +3800,9 @@ void process_system_command(char *input) {
         }
     }
 
+
+    //list down available users
+
     else if (strcmp(cmd, "available-t") == 0){
         out("root - sudo power\n");
         out("seal - sudo power\n");
@@ -3578,7 +3814,7 @@ void process_system_command(char *input) {
         }
     }
 
-    
+    //comp
     else if (strcmp(cmd, "comp") == 0){
         char input[256];
         char output[256];
@@ -3588,6 +3824,11 @@ void process_system_command(char *input) {
         out("", output);
         compressor(input, output);
     }
+
+
+
+
+    //decomp
     else if (strcmp(cmd, "decomp") == 0)
     {
         
@@ -3600,6 +3841,9 @@ void process_system_command(char *input) {
         decompress(input, output);
     }
 
+
+
+//pkgmgr
     else if (strcmp(cmd, "pkgmgr") == 0) {
         char maincmd[32] = {0};
         char subcmd[32] = {0};
@@ -3653,6 +3897,10 @@ void process_system_command(char *input) {
         } 
     }
 
+
+
+
+    //browser
     else if (strcmp(cmd, "browser") == 0) {
         char url[128];
         char command[256];
@@ -3680,6 +3928,9 @@ void process_system_command(char *input) {
         pclose(fp);
     }
 
+
+
+    //webip-a
     else if (strcmp(cmd, "webip-a") == 0) {
         char command[256];
 
@@ -3699,10 +3950,15 @@ void process_system_command(char *input) {
         pclose(fp);
     }
 
+
+    //clear
     else if (strcmp(cmd, "clear") == 0){
         out("\033[H\033[J");
     }
 
+
+
+    //game8 game
     else if (strcmp(cmd, "game8") == 0){
         srand(time(NULL));
         int guess = rand() % 15;
@@ -3907,6 +4163,10 @@ void process_system_command(char *input) {
 
 //MedKit : 1
 //Jump Pad : 2
+
+
+
+    //game9 game
     else if (strcmp(cmd, "game9") == 0){
         int primary;
         int secondary;
@@ -4027,6 +4287,9 @@ void process_system_command(char *input) {
 
     }
 
+
+
+        //game10 game
     else if (strcmp(cmd, "game10") == 0){
         int r1 = rand() % 11;
         int r2 = rand() % 11;
@@ -4076,13 +4339,26 @@ void process_system_command(char *input) {
 
     }
 
+
+    //zlio version
     else if (strcmp(cmd, "version-zlio") == 0){
         out("ZLIO Library - Version 2.0.0\n");
     }
 
+    //sudd version
+    else if (strcmp(cmd, "version-sudd") == 0){
+        out("SealKernel User Directory Design (SUDD) - Update 3\n");
+    }
+
+
+
+    //see your os 
     else if (strcmp(cmd, "system") == 0){
         tagged();
     }
+
+
+    //history
 
     else if (strcmp(cmd, "history") == 0){
         FILE *fptr;
@@ -4101,6 +4377,10 @@ void process_system_command(char *input) {
         out("\n");
     }
 
+
+
+    //clear history
+
     else if (strcmp(cmd, "clear-history") == 0){
         FILE *fptr;
         fptr = fopen("qubabasdwiaisd.txt", "w");
@@ -4109,6 +4389,9 @@ void process_system_command(char *input) {
         fclose(fptr);
     }
 
+
+
+    //wc
     else if (strcmp(cmd, "wc") == 0) {
         if (parsed_args < 2) {
             out("errcode 3: file not provided\n");
@@ -4143,6 +4426,159 @@ void process_system_command(char *input) {
             }
         }
     }
+
+
+    //cc
+    else if (strcmp(cmd, "cc") == 0) {
+        FILE *fptr;
+        fptr = fopen(arg1, "r");
+        
+        if (fptr != nullptr) { 
+            char buffer[100]; 
+            
+            if (std::fgets(buffer, sizeof(buffer), fptr) != nullptr) {
+                std::string line_buffer(buffer);
+                
+                size_t len = line_buffer.length(); 
+
+                std::cout << len << std::endl;
+            }
+            
+            fclose(fptr); 
+        }
+    }
+    else if (strcmp(cmd, "find") == 0) {
+        std::ifstream file(arg1);
+        if (!file.is_open()) {
+            std::cout << "errcode 3: file not provided" << arg1 << std::endl;
+            return; 
+        }
+    
+        out("What do you want to find inside %s ? ", arg1);
+        std::string search_target;
+        std::cin >> search_target;
+    
+        std::string line;
+        int line_number = 1;
+        bool found = false;
+    
+        while (std::getline(file, line)) {
+            size_t char_pos = line.find(search_target);
+
+            if (char_pos != std::string::npos) {
+                std::cout << "Line: " << line_number 
+                          << ", At: " << char_pos << std::endl;
+                found = true;
+            }
+            line_number++;
+        }
+    
+        if (!found) {
+            std::cout << "errcode25: the word you search for doesn't exist in this file" << std::endl;
+        }
+       
+    }
+    
+
+    //varlab / game12
+
+    else if (strcmp(cmd, "varlab") == 0 || strcmp(cmd, "game12") == 0) {
+        int input;
+        int input2;
+        out("Welcome to Variable Labs!\n");
+        out("Choose one variable here:\n");
+        
+        do {
+            out("1. Integer\n");
+            out("2. Long Integer\n");
+            out("3. Floating Point\n");
+            out("4. Double Floating Point\n");
+            in("", &input);
+        } while(input < 1 || input > 4); 
+    
+        if (input == 1) {
+            int num1;
+            out("Type a number (integer): ");
+            in("", &num1);
+            out("%d\n", num1);
+            out("Now choose a different variable: \n");
+            
+            do {
+                out("2. Long Integer\n");
+                out("3. Floating Point\n");
+                out("4. Double Floating Point\n");
+                in("", &input2);
+            } while(input2 < 2 || input2 > 4);
+            
+            if (input2 == 2) {
+                long num2 = (long)num1;
+                out("%ld\n", num2);
+            } else if (input2 == 3) {
+                float num2 = (float)num1;
+                out("%f\n", num2);
+            } else if (input2 == 4) {
+                double num2 = (double)num1;
+                out("%lf\n", num2);
+            }
+        }
+        else if (input == 2) {
+            long num1;
+            out("Type a number (long integer): ");
+            std::cin >> num1;
+            out("%ld\n", num1);
+            out("Now choose a different variable: \n");
+            
+            do {
+                out("1. Integer\n");
+                out("3. Floating Point\n");
+                out("4. Double Floating Point\n");
+                in("", &input2);
+            } while(input2 != 1 && input2 != 3 && input2 != 4);
+            
+            if (input2 == 1) { int num2 = (int)num1; out("%d\n", num2); }
+            else if (input2 == 3) { float num2 = (float)num1; out("%f\n", num2); }
+            else if (input2 == 4) { double num2 = (double)num1; out("%lf\n", num2); }
+        }
+        else if (input == 3) {
+            float num1;
+            out("Type a number (floating point): "); 
+            std::cin >> num1;
+            out("%f\n", num1); 
+            out("Now choose a different variable: \n");
+            
+            do {
+                out("1. Integer\n");
+                out("2. Long Integer\n");
+                out("4. Double Floating Point\n");
+                in("", &input2);
+            } while(input2 != 1 && input2 != 2 && input2 != 4);
+            
+            if (input2 == 1) { int num2 = (int)num1; out("%d\n", num2); }
+            else if (input2 == 2) { long num2 = (long)num1; out("%ld\n", num2); }
+            else if (input2 == 4) { double num2 = (double)num1; out("%lf\n", num2); }
+        }
+        else if (input == 4) {
+            double num1;
+            out("Type a number (double floating point): ");
+            in("", &num1);
+            out("%lf\n", num1);
+            out("Now choose a different variable: \n");
+            
+            do {
+                out("1. Integer\n");
+                out("2. Long Integer\n");
+                out("3. Floating Point\n");
+                in("", &input2);
+            } while(input2 < 1 || input2 > 3);
+            
+            if (input2 == 1) { int num2 = (int)num1; out("Converted: %d\n", num2); }
+            else if (input2 == 2) { long num2 = (long)num1; out("Converted: %ld\n", num2); }
+            else if (input2 == 3) { float num2 = (float)num1; out("Converted: %f\n", num2); }
+        }
+    }
+    
+    
+//game11
 
     else if (strcmp(cmd, "game11") == 0){
         char one[128];
@@ -4206,7 +4642,7 @@ void process_system_command(char *input) {
 //So you and your friend {one} are going on an adventure. You start your adventure by a near by forest, where you find a {two} wandering around. For some reason the {two} suddenly turned {three}! How wierd! The {three} {two} came up to you and {one}, then suddenly {four} away. You and {one} wanted to investigate, so you followed the wierd {two} when suddenly you tripped over a {five}. When you got up, you saw the {two} go into a {six}, and when you and {one} got into the {six} you saw the {two} go into the {seven}. You and {one} went into the {seven} and saw the {two} {eight} outside through a open window! You and {one} crawled through the open window and the {two} was running towards a {nine}. You and {one} followed it into the {nine} and saw it, but then something wierd happened. The {two} suddenly trasformed into a {ten}! suddenly the {ten} that used to be a {two} spoke in english and said it's name is {eleven}. Suddenly, with a snap of it's fingers, {eleven} made {twelve} appear out of nowhere and then started eating it! What a wierd adventure!
 
     
-
+//exit program
     
     else if (strcmp(cmd, "sudo-exit") == 0) {
         if (superior == 1){exit(0);}
@@ -4218,6 +4654,8 @@ void process_system_command(char *input) {
         out("errcode 1 : command '%s' not found\n", cmd);
     }
 
+
+    //where it saves command to history
     FILE *fptr = fopen("qubabasdwiaisd.txt", "a+");
     if (fptr != nullptr) {
         fprintf(fptr, "%s %s\n", cmd, arg1);
@@ -4228,6 +4666,8 @@ void process_system_command(char *input) {
 
 }
 
+
+//main function
 
 int main() {
     system("clear");
