@@ -2,7 +2,7 @@
 //THIS FILE IS LICENSED BY GNU 3.0 LICENSE IN GITHUB
 
 //UPDATE THE VERSION HERE!!!!!!!
-char version [] = "SealKernel 18.8.2026";
+char version [] = "SealKernel 19.8.2026";
 
 
 
@@ -1563,7 +1563,9 @@ void process_system_command(char *input) {
         printf("SealKernel 27.7.2026 - added 2026 next term expectation in beta so students can see their marks and see which class they are going to be in and break their hopes and dreams\n");printf("SealKernel 28.7.2026 - changed entire code structure for tsastream\n");printf("SealKernel 29.7.2026 - added game8 and game9 is in progress\n");
         printf("SealKernel 30.7.2026 - added game10, game9 in progress and tsastream new update.\n");out("SealKernel 31.7.2026 - changed stdio lib to zlio lib.\n");out("SealKernel 1.8.2026 - added date to info and about and also improved tsastream\n");out("SealKernel 5.8.2026 - improved help, bootloader changed, added another text editor, extend execute function to other language and added system function\n");out("SealKernel 9.8.2026 - added history and clear history function and also made remove function more secure\n");out("SealKernel 11.8.2026 - added talktoseal feature and added head and tail feature\n");out("SealKernel 12.8.2026 - changed how goto, back and where works and also changed user input stuff\n");out("SealKernel 13.8.2026 - making rm more restricted (so system files won't get deleted) and also fixed change directory/path issue\n");out("SealKernel 13.8.2026 More - changed path structure for SealKernel\n");out("SealKernel 14.8.2026 - updated all ls functions and also added webip-a function\n");out("SealKernel 16.8.2026 - added shell execution function\n");
         out("SealKernel 17.8.2026 - Added game11 and added remainder function\n");
-        out("SealKernel 18.8.2026 - Added game12/varlab , added update-sudd and added cc functions\n");}
+        out("SealKernel 18.8.2026 - Added game12/varlab , added update-sudd and added cc functions\n");
+        out("SealKernel 18.8.2026 More - Added memory allocations stuff (check help)\n");
+        out("SealKernel 19.8.2026 - Added unit function\n");}
 
 
 
@@ -1680,7 +1682,8 @@ void process_system_command(char *input) {
         out("webip-a - check your IP Adress in the web (DNS)\n");
         out("wc - check word count\n");
         out("cc - check character count\n");
-        
+        out("memcode - turns a string to memory address\n");
+        out("strcode - turns a memory address to another memory address\n");
         
         
 
@@ -1715,6 +1718,7 @@ void process_system_command(char *input) {
         out("pkgmgr clone (URL) - run or use a download file (some repo cannot)\n");
         out("browser - show the code of a page\n");
         out("luck - shows ur luck\n");
+        out("unit - checks units\n");
 
         out(" \n");
         out("4. ASCII Arts\n");
@@ -4640,6 +4644,152 @@ void process_system_command(char *input) {
 //name
 //food
 //So you and your friend {one} are going on an adventure. You start your adventure by a near by forest, where you find a {two} wandering around. For some reason the {two} suddenly turned {three}! How wierd! The {three} {two} came up to you and {one}, then suddenly {four} away. You and {one} wanted to investigate, so you followed the wierd {two} when suddenly you tripped over a {five}. When you got up, you saw the {two} go into a {six}, and when you and {one} got into the {six} you saw the {two} go into the {seven}. You and {one} went into the {seven} and saw the {two} {eight} outside through a open window! You and {one} crawled through the open window and the {two} was running towards a {nine}. You and {one} followed it into the {nine} and saw it, but then something wierd happened. The {two} suddenly trasformed into a {ten}! suddenly the {ten} that used to be a {two} spoke in english and said it's name is {eleven}. Suddenly, with a snap of it's fingers, {eleven} made {twelve} appear out of nowhere and then started eating it! What a wierd adventure!
+
+    //memory adress stuff
+
+    else if (strcmp(cmd, "memcode") == 0){
+        std::string input;
+        
+        
+        out("Type something... ");
+        std::cin >> input;
+        
+        std::string *pointer = &input;
+        
+        std::cout << pointer << std::endl; 
+    }
+
+
+    //strcode
+    else if (strcmp(cmd, "strcode") == 0){
+        int input;
+        int *ptr = &input;
+
+
+        out("Type something... ");
+        in("", &input);
+    
+        char addrstr[32]; 
+        snprintf(addrstr, sizeof(addrstr), "%p", (void*)ptr);
+
+        out("%s\n", addrstr);
+
+    }
+
+
+    //unit function
+    else if (strcmp(cmd, "unit") == 0){
+        int input;
+        double unit;
+        double unit2;
+        out("This is the unit program\n");
+        out("It is used to change unit\n");
+        out("Now select what unit changer you want\n");
+        do {
+            out("1. cm to m\n");
+            out("2. mm to cm\n");
+            out("3. kg to g\n");
+            out("4. m to km\n");
+            out("5. F to C\n");
+            out("6. ml to l\n");
+            out("7. m to cm\n");
+            out("8. cm to mm\n");
+            out("9. g to kg\n");
+            out("10. km to m\n");
+            out("11. C to F\n");
+            out("12. l to ml\n");
+            in("", &input);
+        } while(input < 1 || input > 12);
+
+        if(input == 1){
+            out("type your value in cm: ");
+            in("", &unit);
+            unit2 = unit / 100;
+            printf("%lf", unit2);
+        }
+        else if(input == 2){
+            out("type your value in mm: ");
+            in("", &unit);
+            unit2 = unit / 10;
+            printf("%lf", unit2);
+        }
+        else if(input == 3){
+            out("type your value in kg: ");
+            in("", &unit);
+            unit2 = unit * 1000;
+            printf("%lf", unit2);
+        }
+        else if(input == 4){
+            out("type your value in m: ");
+            in("", &unit);
+            unit2 = unit / 1000;
+            printf("%lf", unit2);
+        }
+        else if(input == 5){
+            out("type your value in F: ");
+            in("", &unit);
+            unit2 = (unit - 32) * (5.0 / 9.0);
+            printf("%lf", unit2);
+        }
+
+        //out("1. cm to m\n");
+        //out("2. mm to cm\n");
+        //out("3. kg to g\n");
+        //out("4. m to km\n");
+        //out("5. F to C\n");
+        //out("6. ml to l\n");
+        //out("7. m to cm\n");
+        //out("8. cm to mm\n");
+        //out("9. g to kg\n");
+        //out("10. km to m\n");
+        //out("11. C to F\n");
+        //out("12. l to ml\n");
+        else if(input == 6){
+            out("type your value in ml: ");
+            in("", &unit);
+            unit2 = unit / 1000;
+            printf("%lf", unit2);
+        }
+        else if(input == 7){
+            out("type your value in m: ");
+            in("", &unit);
+            unit2 = unit * 100;
+            printf("%lf", unit2);
+        }
+        else if(input == 8){
+            out("type your value in cm: ");
+            in("", &unit);
+            unit2 = unit * 10;
+            printf("%lf", unit2);
+        }
+        else if(input == 9){
+            out("type your value in g: ");
+            in("", &unit);
+            unit2 = unit / 1000;
+            printf("%lf", unit2);
+        }
+        else if(input == 10){
+            out("type your value in km: ");
+            in("", &unit);
+            unit2 = unit * 1000;
+            printf("%lf", unit2);
+        }
+        else if(input == 11){
+            out("type your value in C: ");
+            in("", &unit);
+            unit2 = (unit * 9.0 / 5.0) + 32;
+            printf("%lf", unit2);
+        }
+        else if(input == 12){
+            out("type your value in l: ");
+            in("", &unit);
+            unit2 = unit * 1000;
+            printf("%lf", unit2);
+        }
+
+    }
+    
+    
 
     
 //exit program
