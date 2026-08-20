@@ -2,7 +2,7 @@
 //THIS FILE IS LICENSED BY GNU 3.0 LICENSE IN GITHUB
 
 //UPDATE THE VERSION HERE!!!!!!!
-char version [] = "SealKernel 19.8.2026";
+char version [] = "SealKernel 20.8.2026";
 
 
 
@@ -28,6 +28,8 @@ using namespace std;
 #include <stdbool.h>
 #include <cmath>
 #include <fstream>
+#include <ftw.h>
+
 
 
 #ifdef _WIN32
@@ -354,7 +356,19 @@ char cwd[1024];
 char memuser[128] = "seal";
 char oripath[1024];
 
+int cb(const char *fpth, const struct stat *sb, int typeflag, struct FTW *ftwbuf){
+    int rmdir = remove(fpth);
 
+    if(rmdir != 0){
+        perror(fpth);
+    }
+
+    return rmdir;
+}
+
+int rmrf(const char *path){
+    return nftw(path, cb, 64, FTW_DEPTH | FTW_PHYS);
+}
 
 //get where to put the file in
 void get_current_path(int current_loc, const char* filename, char* out_path) {
@@ -567,6 +581,49 @@ void process_system_command(char *input) {
     
 
                 if (remove(target_path) == 0) {
+                    if (strcmp(notes_name, arg1) == 0) {
+                        strcpy(notes_name, "notes.txt");
+                        notes_mode = 0;
+                    }
+                    out("changed\n");
+                } else {
+
+                    perror("errcode 3: remove failed");
+                }
+            }
+        }
+    }
+
+
+    //remve directory
+    else if (strcmp(cmd, "rmdir") == 0) {
+        if (parsed_args < 2) {
+            out("errcode 3: file not provided\n");
+        } 
+        
+        else {
+            if (strcmp(arg1, "tty1.cpp") == 0 || 
+                strcmp(arg1, "tty2.cpp") == 0 || 
+                strcmp(arg1, "qubabasdwiaisd.txt") == 0 || 
+                strcmp(arg1, "compress.h") == 0 || 
+                strcmp(arg1, "decompress.h") == 0 || 
+                strcmp(arg1, "stb_image.h") == 0 || 
+                strcmp(arg1, "zlio.h") == 0 || 
+                strcmp(arg1, "root") == 0 || 
+                strcmp(arg1, "text.text") == 0 || 
+                strcmp(arg1, "seal.text") == 0 || 
+                strcmp(arg1, "bootloader") == 0 || 
+                strcmp(arg1, "tty1") == 0 || 
+                strcmp(arg1, "tty2") == 0) {
+                
+                out("errcode 24: access denied: doing such process is very dangerous\n");
+            } 
+            else {
+                char target_path[128];
+                get_current_path(loc, arg1, target_path);
+    
+
+                if (rmrf(target_path) == 0) {
                     if (strcmp(notes_name, arg1) == 0) {
                         strcpy(notes_name, "notes.txt");
                         notes_mode = 0;
@@ -1397,29 +1454,29 @@ void process_system_command(char *input) {
     //system stuff
     else if (strcmp(cmd, "info") == 0) {
 
-        printf("                 ..^~:::::::::::....              \n");
-            printf("            .::::.......:^::.. ..:..:::.          \n");
-            printf("       ...::..          .:.:.  .::.   .:^:        \n");
-            printf("      ::..              .: ~:. ::..      .::      \n");
-            printf("    ::.   ..^ :^..      .. . :. ...  :     :^.    \n");
-            printf("   .^    P@G:  7&#~      ...         ~       ^.   \n");
-            printf("  :^     ~!::!^.:!^  .   ::. ::::.^  ~. .    .^   \n");
-            printf("  ^:     ~^?B@@B!:~  ^     .:^..:::...:..     !^. \n");
-            printf(" ^:^    ^77GP5PPJ!^  ........ ...  .:   . ^: :^ ~ \n");
-            printf(" ^.^:   :...    ^^         ....... :^:^^~:: .^.:^ \n");
-            printf("  ..:::...:^:.  ^. .. .. .^.......^^..^:...:^:..  \n");
-            printf("       ....:::::^^^~~^^^:^~ : ^:::^^.......       \n");
-            printf("                   .......^:~^~~^^.               \n");
-            printf("\n");
-            printf("%s\n", version);
-            printf("Code Env.: VM\n");
-            printf("Code Env. 2: CodePad\n");
-            printf("Code: C, C++\n");
-            printf("Host: CodePad Server\n");
-            printf("PC Info: Virtual\n");
-            printf("Copyleft SealKernel from ZL Project\n");
-            printf("2026\n");
-            printf("QWERTYUIOPASDFGHJKLZXCVBNM1234567890\n");
+        out("                 ..^~:::::::::::....              \n");
+        out("            .::::.......:^::.. ..:..:::.          \n");
+        out("       ...::..          .:.:.  .::.   .:^:        \n");
+        out("      ::..              .: ~:. ::..      .::      \n");
+        out("    ::.   ..^ :^..      .. . :. ...  :     :^.    \n");
+        out("   .^    P@G:  7&#~      ...         ~       ^.   \n");
+        out("  :^     ~!::!^.:!^  .   ::. ::::.^  ~. .    .^   \n");
+        out("  ^:     ~^?B@@B!:~  ^     .:^..:::...:..     !^. \n");
+        out(" ^:^    ^77GP5PPJ!^  ........ ...  .:   . ^: :^ ~ \n");
+        out(" ^.^:   :...    ^^         ....... :^:^^~:: .^.:^ \n");
+        out("  ..:::...:^:.  ^. .. .. .^.......^^..^:...:^:..  \n");
+        out("       ....:::::^^^~~^^^:^~ : ^:::^^.......       \n");
+        out("                   .......^:~^~~^^.               \n");
+        out("\n");
+        out("%s\n", version);
+        out("Code Env.: VM\n");
+        out("Code Env. 2: CodePad\n");
+        out("Code: C, C++\n");
+        out("Host: CodePad Server\n");
+        out("PC Info: Virtual\n");
+        out("Copyleft SealKernel from ZL Project\n");
+        out("2026\n");
+        out("QWERTYUIOPASDFGHJKLZXCVBNM1234567890\n");
             out("\n");
             time(&currentTime); 
             out("%s", ctime(&currentTime));
@@ -1429,38 +1486,38 @@ void process_system_command(char *input) {
         
         
         else if (strcmp(cmd, "about") == 0) {
-            printf("                 ..^~:::::::::::....              \n");
-            printf("            .::::.......:^::.. ..:..:::.          \n");
-            printf("       ...::..          .:.:.  .::.   .:^:        \n");
-            printf("      ::..              .: ~:. ::..      .::      \n");
-            printf("    ::.   ..^ :^..      .. . :. ...  :     :^.    \n");
-            printf("   .^    P@G:  7&#~      ...         ~       ^.   \n");
-            printf("  :^     ~!::!^.:!^  .   ::. ::::.^  ~. .    .^   \n");
-            printf("  ^:     ~^?B@@B!:~  ^     .:^..:::...:..     !^. \n");
-            printf(" ^:^    ^77GP5PPJ!^  ........ ...  .:   . ^: :^ ~ \n");
-            printf(" ^.^:   :...    ^^         ....... :^:^^~:: .^.:^ \n");
-            printf("  ..:::...:^:.  ^. .. .. .^.......^^..^:...:^:..  \n");
-            printf("       ....:::::^^^~~^^^:^~ : ^:::^^.......       \n");
-            printf("                   .......^:~^~~^^.               \n");
-            printf("\n");
+            out("                 ..^~:::::::::::....              \n");
+            out("            .::::.......:^::.. ..:..:::.          \n");
+            out("       ...::..          .:.:.  .::.   .:^:        \n");
+            out("      ::..              .: ~:. ::..      .::      \n");
+            out("    ::.   ..^ :^..      .. . :. ...  :     :^.    \n");
+            out("   .^    P@G:  7&#~      ...         ~       ^.   \n");
+            out("  :^     ~!::!^.:!^  .   ::. ::::.^  ~. .    .^   \n");
+            out("  ^:     ~^?B@@B!:~  ^     .:^..:::...:..     !^. \n");
+            out(" ^:^    ^77GP5PPJ!^  ........ ...  .:   . ^: :^ ~ \n");
+            out(" ^.^:   :...    ^^         ....... :^:^^~:: .^.:^ \n");
+            out("  ..:::...:^:.  ^. .. .. .^.......^^..^:...:^:..  \n");
+            out("       ....:::::^^^~~^^^:^~ : ^:::^^.......       \n");
+            out("                   .......^:~^~~^^.               \n");
+            out("\n");
         
             long size = 0;
             filesize("tty1.cpp", "tty1.cpp");
         
             
         
-            printf("%s\n", version);
-            printf("Code Env.: VM\n");
-            printf("Code Env. 2: CodePad\n");
-            printf("Code: C, C++\n");
-            printf("Host: CodePad Server\n");
-            printf("PC Info: Virtual\n");
+            out("%s\n", version);
+            out("Code Env.: VM\n");
+            out("Code Env. 2: CodePad\n");
+            out("Code: C, C++\n");
+            out("Host: CodePad Server\n");
+            out("PC Info: Virtual\n");
             
             
         
-            printf("Copyleft SealKernel from ZL Project\n");
-            printf("2026\n");
-            printf("QWERTYUIOPASDFGHJKLZXCVBNM1234567890\n");
+            out("Copyleft SealKernel from ZL Project\n");
+            out("2026\n");
+            out("QWERTYUIOPASDFGHJKLZXCVBNM1234567890\n");
             out("\n");
             time(&currentTime); 
             out("%s", ctime(&currentTime));
@@ -1494,10 +1551,17 @@ void process_system_command(char *input) {
     }
     else if (strcmp(cmd, "goto") == 0) {
         if (arg1[0] != '\0') {
-            if (chdir(arg1) == 0) {}
-            else {
-                perror("errcode 3 : file not provided");
+            if (strcmp(arg1, "root") == 0){
+                out("errcode 26 : permission not available\n");
             }
+
+            else {
+                if (chdir(arg1) == 0) {}
+                else {
+                    perror("errcode 3 : file not provided");
+                }
+            }
+            
         }
     }
 
@@ -1520,6 +1584,13 @@ void process_system_command(char *input) {
     }
     else if (strcmp(cmd, "sudo-off") == 0){
         superior = 0;
+        chdir("../");
+        out("normal mode\n");
+    }
+
+    else if (strcmp(cmd, "exit") == 0){
+        superior = 0;
+        out("sudo-off");
         chdir("../");
         out("normal mode\n");
     }
@@ -1556,16 +1627,18 @@ void process_system_command(char *input) {
 
     //details for the latest version
     else if (strcmp(cmd, "release") == 0){
-        printf("SealKernel 10 - can check size of variable class and can check version and release.\n");printf("SealKernel 11 - added curl to grab data from one site and added fast OS specification.\n");printf("SealKernel 12 [BETA] - added tsastream command to check streaming marks for TSIS student\n");printf("SealKernel 13 - Added calculator function andd improved tsastream\n"); printf("SealKernel 14 [BETA] - added tic tac toe game\n");printf("SealKernel 15 - added check storage in main.cpp\n");printf("SealKernel 16 - added check storage in main.cpp inside quick and about and removed TIC TAC TOE for ROCK PAPER SCISSORS game\n");printf("SealKernel 17 - fixed rock paper scissors game and added guess the number game\n"); printf ("SealKernel 18 - changed file locations and changed space-main.cpp to space. Also fixed game1\n");printf("SealKernel 19 - added game3 and game4 and also restricted exit command only for sudo user\n");printf("SealKernel 20 - added dice feature\n");printf("SealKernel 21 - fixed tsastream and removed quick and about for monthly cleaning (July)\n");    printf("SealKernel 22 - Improved tsastream\n");printf("SealKernel 23 - added luck program, element program and game5. Also improved pad function\n");printf("SealKernel 24 - added speed reaction game\n");printf("SealKernel 25 - Added conquer country game and also added bool. Also addded more space function (check out in help)\n");printf("SealKernel 26 - changed entire ls family, changed file structure\n");printf("SealKernel 27 - changed entire code structure of calculator\n");printf("SealKernel 28 - added move function and changed execute function\n");printf("SealKernel 16.7.2026 - changed version name from 28 to 16.7.2026 to indicate when was the version released, added more file for different purposes and also added image function. Finally, we also added file space for them\n");printf("SealKernel 17.7.2026 - added words, phrase and essay function\n");printf("SealKernel 19.7.2026 - prevent overflowing values for tsastream\n");printf("SealKernel 19.7.2026 More - created users function\n");
-        printf("SealKernel 20.7.2026 - Changed input for user and also restricted normal user to root user so they cannot control the system and also added compress and decompress function\n");
-        printf("SealKernel 21.7.2026 - added own package manager from bpm and also fixed Trigraphs error and other warnings\n");
-        printf("SealKernel 22.7.2026 - added browser function to show HTML code in website\n");printf("SealKernel 23.7.2026 - added bootloader and function clear\n");printf("SealKernel 26.7.2026 - fixed space and about function and added error code for future purposes\n");
-        printf("SealKernel 27.7.2026 - added 2026 next term expectation in beta so students can see their marks and see which class they are going to be in and break their hopes and dreams\n");printf("SealKernel 28.7.2026 - changed entire code structure for tsastream\n");printf("SealKernel 29.7.2026 - added game8 and game9 is in progress\n");
-        printf("SealKernel 30.7.2026 - added game10, game9 in progress and tsastream new update.\n");out("SealKernel 31.7.2026 - changed stdio lib to zlio lib.\n");out("SealKernel 1.8.2026 - added date to info and about and also improved tsastream\n");out("SealKernel 5.8.2026 - improved help, bootloader changed, added another text editor, extend execute function to other language and added system function\n");out("SealKernel 9.8.2026 - added history and clear history function and also made remove function more secure\n");out("SealKernel 11.8.2026 - added talktoseal feature and added head and tail feature\n");out("SealKernel 12.8.2026 - changed how goto, back and where works and also changed user input stuff\n");out("SealKernel 13.8.2026 - making rm more restricted (so system files won't get deleted) and also fixed change directory/path issue\n");out("SealKernel 13.8.2026 More - changed path structure for SealKernel\n");out("SealKernel 14.8.2026 - updated all ls functions and also added webip-a function\n");out("SealKernel 16.8.2026 - added shell execution function\n");
+        out("SealKernel 10 - can check size of variable class and can check version and release.\n");out("SealKernel 11 - added curl to grab data from one site and added fast OS specification.\n");out("SealKernel 12 [BETA] - added tsastream command to check streaming marks for TSIS student\n");out("SealKernel 13 - Added calculator function andd improved tsastream\n"); out("SealKernel 14 [BETA] - added tic tac toe game\n");out("SealKernel 15 - added check storage in main.cpp\n");out("SealKernel 16 - added check storage in main.cpp inside quick and about and removed TIC TAC TOE for ROCK PAPER SCISSORS game\n");out("SealKernel 17 - fixed rock paper scissors game and added guess the number game\n"); out ("SealKernel 18 - changed file locations and changed space-main.cpp to space. Also fixed game1\n");out("SealKernel 19 - added game3 and game4 and also restricted exit command only for sudo user\n");out("SealKernel 20 - added dice feature\n");out("SealKernel 21 - fixed tsastream and removed quick and about for monthly cleaning (July)\n");    out("SealKernel 22 - Improved tsastream\n");out("SealKernel 23 - added luck program, element program and game5. Also improved pad function\n");out("SealKernel 24 - added speed reaction game\n");out("SealKernel 25 - Added conquer country game and also added bool. Also addded more space function (check out in help)\n");out("SealKernel 26 - changed entire ls family, changed file structure\n");out("SealKernel 27 - changed entire code structure of calculator\n");out("SealKernel 28 - added move function and changed execute function\n");out("SealKernel 16.7.2026 - changed version name from 28 to 16.7.2026 to indicate when was the version released, added more file for different purposes and also added image function. Finally, we also added file space for them\n");out("SealKernel 17.7.2026 - added words, phrase and essay function\n");out("SealKernel 19.7.2026 - prevent overflowing values for tsastream\n");out("SealKernel 19.7.2026 More - created users function\n");
+        out("SealKernel 20.7.2026 - Changed input for user and also restricted normal user to root user so they cannot control the system and also added compress and decompress function\n");
+        out("SealKernel 21.7.2026 - added own package manager from bpm and also fixed Trigraphs error and other warnings\n");
+        out("SealKernel 22.7.2026 - added browser function to show HTML code in website\n");out("SealKernel 23.7.2026 - added bootloader and function clear\n");out("SealKernel 26.7.2026 - fixed space and about function and added error code for future purposes\n");
+        out("SealKernel 27.7.2026 - added 2026 next term expectation in beta so students can see their marks and see which class they are going to be in and break their hopes and dreams\n");out("SealKernel 28.7.2026 - changed entire code structure for tsastream\n");out("SealKernel 29.7.2026 - added game8 and game9 is in progress\n");
+        out("SealKernel 30.7.2026 - added game10, game9 in progress and tsastream new update.\n");out("SealKernel 31.7.2026 - changed stdio lib to zlio lib.\n");out("SealKernel 1.8.2026 - added date to info and about and also improved tsastream\n");out("SealKernel 5.8.2026 - improved help, bootloader changed, added another text editor, extend execute function to other language and added system function\n");out("SealKernel 9.8.2026 - added history and clear history function and also made remove function more secure\n");out("SealKernel 11.8.2026 - added talktoseal feature and added head and tail feature\n");out("SealKernel 12.8.2026 - changed how goto, back and where works and also changed user input stuff\n");out("SealKernel 13.8.2026 - making rm more restricted (so system files won't get deleted) and also fixed change directory/path issue\n");out("SealKernel 13.8.2026 More - changed path structure for SealKernel\n");out("SealKernel 14.8.2026 - updated all ls functions and also added webip-a function\n");out("SealKernel 16.8.2026 - added shell execution function\n");
         out("SealKernel 17.8.2026 - Added game11 and added remainder function\n");
         out("SealKernel 18.8.2026 - Added game12/varlab , added update-sudd and added cc functions\n");
         out("SealKernel 18.8.2026 More - Added memory allocations stuff (check help)\n");
-        out("SealKernel 19.8.2026 - Added unit function\n");}
+        out("SealKernel 19.8.2026 - Added unit function\n");
+        out("SealKernel 20.8.2026 - Added rmdir function, changed goto structure and also added exit function\n");
+        }
 
 
 
@@ -1626,7 +1699,8 @@ void process_system_command(char *input) {
         out("1. System functions:\n");
         out(" \n");
         out("chmod - change file to either public(1) or private (0)\n");
-        out("rm - remove a directory or a file\n");
+        out("rm - remove a file\n");
+        out("rmdir - remove a directory\n");
         out("mv - move a file to another location\n");
         out("save - save a file\n");
         out("exe - execute c/cpp file\n");
@@ -1650,6 +1724,7 @@ void process_system_command(char *input) {
         out("goto - go to a file/directory\n");
         out("sudo-on - turn on sudo mode\n");
         out("sudo-off - turn off sudo mode\n");
+        out("exit - turn off sudo mode\n");
         out("back - go back to root / superior\n");
         out("where - tells you your location\n");
         out("version - tells you what version you are in\n");
@@ -4557,9 +4632,15 @@ void process_system_command(char *input) {
                 in("", &input2);
             } while(input2 != 1 && input2 != 2 && input2 != 4);
             
-            if (input2 == 1) { int num2 = (int)num1; out("%d\n", num2); }
-            else if (input2 == 2) { long num2 = (long)num1; out("%ld\n", num2); }
-            else if (input2 == 4) { double num2 = (double)num1; out("%lf\n", num2); }
+            if (input2 == 1){ 
+                int num2 = (int)num1; out("%d\n", num2); 
+            }
+            else if (input2 == 2) { 
+                long num2 = (long)num1; out("%ld\n", num2); 
+            }
+            else if (input2 == 4) { 
+                double num2 = (double)num1; out("%lf\n", num2); 
+            }
         }
         else if (input == 4) {
             double num1;
@@ -4575,9 +4656,15 @@ void process_system_command(char *input) {
                 in("", &input2);
             } while(input2 < 1 || input2 > 3);
             
-            if (input2 == 1) { int num2 = (int)num1; out("Converted: %d\n", num2); }
-            else if (input2 == 2) { long num2 = (long)num1; out("Converted: %ld\n", num2); }
-            else if (input2 == 3) { float num2 = (float)num1; out("Converted: %f\n", num2); }
+            if (input2 == 1) { 
+                int num2 = (int)num1; out("Converted: %d\n", num2); 
+            }
+            else if (input2 == 2) { 
+                long num2 = (long)num1; out("Converted: %ld\n", num2); 
+            }
+            else if (input2 == 3) {
+                float num2 = (float)num1; out("Converted: %f\n", num2); 
+            }
         }
     }
     
