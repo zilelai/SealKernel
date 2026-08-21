@@ -2,7 +2,7 @@
 //THIS FILE IS LICENSED BY GNU 3.0 LICENSE IN GITHUB
 
 //UPDATE THE VERSION HERE!!!!!!!
-char version [] = "SealKernel 20.8.2026";
+char version [] = "SealKernel 21.8.2026";
 
 
 
@@ -52,6 +52,12 @@ using namespace std;
 #define MAX 10000
 #define MIN 256
 
+#define RED     "\x1b[31m"
+#define GREEN   "\x1b[32m"
+#define YELLOW  "\x1b[33m"
+#define BLUE    "\x1b[34m"
+#define RESET   "\x1b[0m"
+
 
 //ZLIO Implementations
 void charoutput(char c) {
@@ -67,24 +73,6 @@ void stroutput(const char *str, int *count) {
     }
 }
 
-
-//tags to see if you are running in Linux or Windows or Other OS
-#if defined(__linux__)
-void tagged() {
-    out("linux\n");
-}
-#elif defined(_WIN32) || defined(_WIN64)
-void tagged() {
-    out("windows\n");
-}
-#else
-void tagged() {
-    out("other OS\n");
-}
-#endif
-
-
-//More ZLIO Implementation
 static void intoutput(int n, int *count) {
     char buf[32];
     int i = 0;
@@ -176,7 +164,6 @@ static size_t rlen(char *buf, size_t max_len) {
     }
     buf[i] = '\0';
 
-    
     while (i > 0 && (buf[i - 1] == '\r' || isspace((unsigned char)buf[i - 1]))) {
         buf[--i] = '\0';
     }
@@ -197,7 +184,6 @@ InputValue inraw(const char *prompt) {
     }
 
     char *endptr;
-
 
     if (strchr(buffer, '.') != NULL) {
         double vald = strtod(buffer, &endptr);
@@ -230,6 +216,12 @@ InputValue inraw(const char *prompt) {
     if (strcasecmp(buffer, "false") == 0 || strcmp(buffer, "0") == 0 || strcasecmp(buffer, "no") == 0) {
         result.type = INPUTBOOL;
         result.data.boolvalue = false;
+        return result;
+    }
+
+    if (strlen(buffer) > 1 && strpbrk(buffer, "+-*/") != NULL) {
+        result.type = INPUTDOUBLE;
+        result.data.doublevalue = math(buffer);
         return result;
     }
 
@@ -277,6 +269,85 @@ void instr(const char *prompt, char *outval) {
         outval[255] = '\0';
     }
 }
+
+
+static double parse_expression(const char **str);
+
+static double parse_factor(const char **str) {
+    while (isspace((unsigned char)**str)) (*str)++;
+
+    if (**str == '-') {
+        (*str)++;
+        return -parse_factor(str);
+    }
+
+    if (**str == '(') {
+        (*str)++;
+        double val = parse_expression(str);
+        if (**str == ')') (*str)++;
+        return val;
+    }
+
+    char *endptr;
+    double val = strtod(*str, &endptr);
+    *str = endptr;
+    return val;
+}
+
+static double parse_term(const char **str) {
+    double left = parse_factor(str);
+    while (1) {
+        while (isspace((unsigned char)**str)) (*str)++;
+        char op = **str;
+        if (op == '*' || op == '/') {
+            (*str)++;
+            double right = parse_factor(str);
+            if (op == '*') left *= right;
+            else if (op == '/') left = (right != 0.0) ? (left / right) : 0.0;
+        } else {
+            break;
+        }
+    }
+    return left;
+}
+
+static double parse_expression(const char **str) {
+    double left = parse_term(str);
+    while (1) {
+        while (isspace((unsigned char)**str)) (*str)++;
+        char op = **str;
+        if (op == '+' || op == '-') {
+            (*str)++;
+            double right = parse_term(str);
+            if (op == '+') left += right;
+            else if (op == '-') left -= right;
+        } else {
+            break;
+        }
+    }
+    return left;
+}
+
+double math(const char *expr) {
+    return parse_expression(&expr);
+}
+
+
+//tags to see if you are running in Linux or Windows or Other OS
+#if defined(__linux__)
+void tagged() {
+    out("linux\n");
+}
+#elif defined(_WIN32) || defined(_WIN64)
+void tagged() {
+    out("windows\n");
+}
+#else
+void tagged() {
+    out("other OS\n");
+}
+#endif
+
 
 //check filesize
 void filesize(const char *label, const char *filename) {
@@ -334,11 +405,11 @@ size_t write_callback(void *contents, size_t size, size_t nmemb, void *userp) {
 
 
 //variables
-char op;
+char op [127];
 double firstnum;
 double secondnum;
 double result;
-char cmd[50];
+
 char input_buf[50];
 int loc = 0;
 int notes_mode = 0;
@@ -355,6 +426,10 @@ int config;
 char cwd[1024];
 char memuser[128] = "seal";
 char oripath[1024];
+
+char cmd[20] = "";
+char arg1[64] = "";
+char arg2[64] = "";
 
 int cb(const char *fpth, const struct stat *sb, int typeflag, struct FTW *ftwbuf){
     int rmdir = remove(fpth);
@@ -532,9 +607,7 @@ void process_system_command(char *input) {
 
 
     //command variables
-    char cmd[20] = "";
-    char arg1[64] = "";
-    char arg2[64] = "";
+    
     int parsed_args = sscanf(input, "%s %s %s", cmd, arg1, arg2);
 
 
@@ -1637,7 +1710,7 @@ void process_system_command(char *input) {
         out("SealKernel 18.8.2026 - Added game12/varlab , added update-sudd and added cc functions\n");
         out("SealKernel 18.8.2026 More - Added memory allocations stuff (check help)\n");
         out("SealKernel 19.8.2026 - Added unit function\n");
-        out("SealKernel 20.8.2026 - Added rmdir function, changed goto structure and also added exit function\n");
+        out("SealKernel 20.8.2026 - Added rmdir function, changed goto structure and also added exit function\n");out("SealKernel 21.8.2026 - Added minimum and maximum range for random, added sub commands for time, changed ZLIO.H, print what was the last command and finally added colour codes.\n");
         }
 
 
@@ -1695,7 +1768,8 @@ void process_system_command(char *input) {
 
     //help
     else if (strcmp(cmd, "help") == 0) {
-        out("SealKernel Functions:\n");
+        out(RED"SealKernel Functions:\n");
+        out(RESET);
         out("1. System functions:\n");
         out(" \n");
         out("chmod - change file to either public(1) or private (0)\n");
@@ -1731,6 +1805,12 @@ void process_system_command(char *input) {
         out("ls - list down files\n");
         out("echo - repeat what you key in\n");
         out("date - WHAT IS THE DATE NOW???\n");
+        out("date-y - WHAT IS THE DATE NOW??? in year\n");
+        out("date-m - WHAT IS THE DATE NOW??? in month\n");
+        out("date-d - WHAT IS THE DATE NOW??? in day\n");
+        out("date-h - WHAT IS THE DATE NOW??? in hour\n");
+        out("date-min - WHAT IS THE DATE NOW??? in minutes\n");
+        out("date-sec - WHAT IS THE DATE NOW??? in seconds\n");
         out("space - check space for tty1.cpp\n");
         out("space-documents - check space for documents directory\n");
         out("space-downloads - check space for downloads directory\n");
@@ -2445,12 +2525,62 @@ void process_system_command(char *input) {
         time(&currentTime); 
         out("%s", ctime(&currentTime));
     }
+
+    //date now - year
+    else if (strcmp(cmd, "date-y") == 0) {
+        time_t now = time(NULL);
+        struct tm *t = localtime(&now);
+
+        out("%d\n", t -> tm_year + 1900);
+    }
+
+    else if (strcmp(cmd, "date-m") == 0) {
+        time_t now = time(NULL);
+        struct tm *t = localtime(&now);
+
+        out("%d\n", t -> tm_mon + 1);
+    }
+
+    else if (strcmp(cmd, "date-d") == 0) {
+        time_t now = time(NULL);
+        struct tm *t = localtime(&now);
+
+        out("%d\n", t -> tm_mday);
+    }
+
+    else if (strcmp(cmd, "date-h") == 0) {
+        time_t now = time(NULL);
+        struct tm *t = localtime(&now);
+
+        out("%d\n", t -> tm_hour);
+    }
+
+    else if (strcmp(cmd, "date-min") == 0) {
+        time_t now = time(NULL);
+        struct tm *t = localtime(&now);
+
+        out("%d\n", t -> tm_min);
+    }
+
+    else if (strcmp(cmd, "date-s") == 0) {
+        time_t now = time(NULL);
+        struct tm *t = localtime(&now);
+
+        out("%d\n", t -> tm_sec);
+    }
+    
     
 
 
     //random stuff
     else if (strcmp(cmd, "random") == 0) {
-        out("%d\n", rand());
+        int min;
+        int max;
+        out("What is your minimum range?: ");
+        in("", &min);
+        out("What is your maximum range?: ");
+        in("", &max);
+        out("%d\n", rand() % max + min);
     }
 
 
@@ -2492,58 +2622,66 @@ void process_system_command(char *input) {
 
     //calc
     else if (strcmp(cmd, "calc") == 0) {
-        double output;
-        bool remainder;
-        out("Before procedding, if u want to calculate roots, the big number is the first number and the root is the second number. Same applies to powers.\n");
-        out("Enter your case: (+, -, *, /, 'R' for roots, '^' for powers, '%' for remainders)\n");
-
-        in("", &op);
+        char op[16];
+        double firstnum = 0.0, secondnum = 0.0;
+        double output = 0.0;
+    
+        out("Before proceeding, if u want to calculate roots, the big number is the first number and the root is the second number. Same applies to powers.\n");
+        out("NOTE THAT YOUR CASE IF THE SYMBOLS DONT WORK YOU CAN TYPE IN THE SYMBOL'S FIRST 3 LINE (addition = add), except for root, where you just type in 'root'\n");
+        out("Enter your case: (+, -, *, /, 'R' for roots, '^' for powers, and percentage symbol for remainders): ");
+    
+        in("", op);
+    
         out("Enter your first number:\n");
         in("", &firstnum);
-        if(op == '%'){}
-
-        else{
+    
+        if (op[0] != '%') {
             out("Enter your second number:\n");
             in("", &secondnum);
         }
-        
-
-        if (op == '+'){
-            double output = firstnum + secondnum;
-            printf("%lf\n", output);
+    
+        if (op[0] == '+' || strcmp(op, "add") == 0) {
+            output = firstnum + secondnum;
+            out("%f\n", output);
         }
-        else if (op == '-'){
-            double output = firstnum - secondnum;
-            printf("%lf\n", output);
+        else if (op[0] == '-' || strcmp(op, "sub") == 0) {
+            output = firstnum - secondnum;
+            out("%f\n", output);
         }
-        else if (op == '*'){
-            double output = firstnum * secondnum;
-            printf("%lf\n", output);
+        else if (op[0] == '*' || strcmp(op, "mul") == 0) {
+            output = firstnum * secondnum;
+            out("%f\n", output);
         }
-        else if (op == '/'){
-            double output = firstnum / secondnum;
-            printf("%lf\n", output);
-        }
-        else if (op == '^'){
-            double output = pow(firstnum, secondnum);
-            printf("%lf\n", output);
-        }
-        else if (op == 'R'){
-            double output = pow(firstnum, 1.0 / secondnum);
-            printf("%lf\n", output);
-        }
-
-        else if (op == '%'){
-            bool output = fmod(firstnum, 2.0) != 0.0;
-            if (output == 0){
-                printf("%.0lf is even number\n", firstnum);
-            }
-            else{
-                printf("%.0lf is odd number\n", firstnum);
+        else if (op[0] == '/' || strcmp(op, "div") == 0) {
+            if (secondnum != 0.0) {
+                output = firstnum / secondnum;
+                out("%f\n", output);
+            } else {
+                out("Error: Division by zero\n");
             }
         }
-        else{
-            out("errcode 15 : operator not found");
+        else if (op[0] == '^' || strcmp(op, "pow") == 0) {
+            output = pow(firstnum, secondnum);
+            out("%f\n", output);
+        }
+        else if (op[0] == 'R' || strcmp(op, "root") == 0) {
+            if (secondnum != 0.0) {
+                output = pow(firstnum, 1.0 / secondnum);
+                out("%f\n", output);
+            } else {
+                out("Error: Root degree cannot be zero\n");
+            }
+        }
+        else if (op[0] == '%' || strcmp(op, "rem") == 0) {
+            bool is_odd = fmod(firstnum, 2.0) != 0.0;
+            if (!is_odd) {
+                out("%.0f is an even number\n", firstnum);
+            } else {
+                out("%.0f is an odd number\n", firstnum);
+            }
+        }
+        else {
+            out("errcode 15 : operator not found\n");
         }
     }
 
@@ -4922,6 +5060,8 @@ int main() {
     out("A project by ZileLai\n");
     out("ZL Projects' Website : https://zilelai.lab26.my/\n");
     out("if don't know any command, use 'help'\n");
+    out(GREEN"Last Command: \n" RESET);
+
 
     
     char root[512]; 
@@ -4940,20 +5080,22 @@ int main() {
         
         if (strcmp(users, "seal") == 0 && superior == 0){
             if (getcwd(cwd, sizeof(cwd)) != NULL) {
-                out("%s $ ", cwd);
+                out(BLUE "%s $ ", cwd);
             }
         }
 
         else if (strcmp(users, "seal") != 0 && superior == 0){
             if (getcwd(cwd, sizeof(cwd)) != NULL) {
-                out("%s$ ", users, cwd);
+                out(BLUE"%s$ ", users, cwd);
             }
         }
         else if (superior == 1){
             if (getcwd(cwd, sizeof(cwd)) != NULL) {
-                out("%s $ ",cwd);
+                out(BLUE, "%s $ ",cwd);
             }
         }
+
+        out(RESET);
         fflush(stdout);
 
         if (fgets(input, sizeof(input), stdin) == NULL) break;
@@ -4969,6 +5111,20 @@ int main() {
             #endif
         }
         process_system_command(input);
+
+        time_t rawtime;
+        struct tm *timeinfo;
+
+        time(&rawtime);
+        timeinfo = localtime(&rawtime);
+
+        out("\033[s\033[5;1H");
+        out("\033[K"); 
+        out(GREEN"Last Command: %s %s", cmd, arg1);
+        out(RESET);
+        out("\033[u");
+        
+        fflush(stdout);
     }
 
 
