@@ -35,10 +35,12 @@ void indouble(const char *prompt, double *out_val);
 void inbool(const char *prompt, bool *out_val);
 void instr(const char *prompt, char *out_val);
 
+
+double math(const char *expr);
+
 #ifdef __cplusplus
 }
 #endif
-
 
 #ifdef __cplusplus
 
@@ -58,4 +60,4 @@ inline void in(const char *prompt, char *val) { instr(prompt, val); }
 
 #endif
 
-#endif 
+#endif
