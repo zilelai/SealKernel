@@ -4559,7 +4559,7 @@ void process_system_command(char *input) {
 
     //zlio version
     else if (strcmp(cmd, "version-zlio") == 0){
-        out("ZLIO Library - Version 2.0.0\n");
+        out("ZLIO Library - Version 2.1.0\n");
     }
 
     //sudd version
