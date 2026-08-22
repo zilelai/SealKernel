@@ -2,7 +2,7 @@
 //THIS FILE IS LICENSED BY GNU 3.0 LICENSE IN GITHUB
 
 //UPDATE THE VERSION HERE!!!!!!!
-char version [] = "SealKernel 21.8.2026";
+char version [] = "SealKernel 22.8.2026";
 
 
 
@@ -994,7 +994,8 @@ void process_system_command(char *input) {
                     out("-: %s\n", entry->d_name);
                 }
                 else if (entry->d_type == DT_DIR){
-                    out("d: %s\n", entry->d_name);
+                    out(BLUE"d: %s\n", entry->d_name);
+                    out(RESET);
                 }
            
             
@@ -1021,7 +1022,8 @@ void process_system_command(char *input) {
                     out("-: %s\n", entry->d_name);
                 }
                 else if (entry->d_type == DT_DIR){
-                    out("d: %s\n", entry->d_name);
+                    out(BLUE"d: %s\n", entry->d_name);
+                    out(RESET);
                 }
            
             
@@ -1074,6 +1076,19 @@ void process_system_command(char *input) {
                     out("%c/%c/%c/%s\n", read,write,execute, entry->d_name);
                 
                 }
+
+                else if (S_ISDIR(pstd.st_mode)){
+                    int r = (access(fpath, R_OK) == 0);int w = (access(fpath, W_OK) == 0);int x = (access(fpath, X_OK) == 0);
+
+                    if (r == 1){read = 'r';}
+                    if (w == 1){write = 'w';}
+                    if (x == 1){execute = 'x';}
+                    if (r == 0){read = '-';}
+                    if (w == 0){write = '-';}
+                    if (x == 0){execute = '-';}
+                    out(BLUE "%c/%c/%c/%s\n", read,write,execute, entry->d_name);
+                    out(RESET);
+                }
             }
             if (closedir(dir) == -1){
                 out("errcode 3: file not provided\n");
@@ -1115,6 +1130,19 @@ void process_system_command(char *input) {
                     if (x == 0){execute = '-';}
                     out("%c/%c/%c/%s\n", read,write,execute, entry->d_name);
                 
+                }
+
+                else if (S_ISDIR(pstd.st_mode)){
+                    int r = (access(fpath, R_OK) == 0);int w = (access(fpath, W_OK) == 0);int x = (access(fpath, X_OK) == 0);
+
+                    if (r == 1){read = 'r';}
+                    if (w == 1){write = 'w';}
+                    if (x == 1){execute = 'x';}
+                    if (r == 0){read = '-';}
+                    if (w == 0){write = '-';}
+                    if (x == 0){execute = '-';}
+                    out(BLUE "%c/%c/%c/%s\n", read,write,execute, entry->d_name);
+                    out(RESET);
                 }
             }
             if (closedir(dir) == -1){
@@ -1168,7 +1196,8 @@ void process_system_command(char *input) {
                     out("-/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
                 } 
                 else if (S_ISDIR(pstd.st_mode)) {
-                    out("d/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
+                    out(BLUE "d/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
+                    out(RESET);
                 }
             }
     
@@ -1217,7 +1246,8 @@ void process_system_command(char *input) {
                     out("-/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
                 } 
                 else if (S_ISDIR(pstd.st_mode)) {
-                    out("d/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
+                    out(BLUE "d/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
+                    out(RESET);
                 }
             }
     
@@ -1272,7 +1302,8 @@ void process_system_command(char *input) {
                     out("-/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
                 } 
                 else if (S_ISDIR(pstd.st_mode)) {
-                    out("d/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
+                    out(BLUE "d/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
+                    out(RESET);
                 }
             }
     
@@ -1321,7 +1352,8 @@ void process_system_command(char *input) {
                     out("-/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
                 } 
                 else if (S_ISDIR(pstd.st_mode)) {
-                    out("d/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
+                    out(BLUE "d/%c/%c/%c/%s\n", read, write, execute, entry->d_name);
+                    out(RESET);
                 }
             }
     
@@ -1711,6 +1743,7 @@ void process_system_command(char *input) {
         out("SealKernel 18.8.2026 More - Added memory allocations stuff (check help)\n");
         out("SealKernel 19.8.2026 - Added unit function\n");
         out("SealKernel 20.8.2026 - Added rmdir function, changed goto structure and also added exit function\n");out("SealKernel 21.8.2026 - Added minimum and maximum range for random, added sub commands for time, changed ZLIO.H, print what was the last command and finally added colour codes.\n");
+        out("SealKernel 22.8.2026 - Added colour codes to ls, ls-d, ls-t, ls-td and ls-dt and improved game8\n");
         }
 
 
@@ -1718,23 +1751,31 @@ void process_system_command(char *input) {
 
         //ls function
     else if (strcmp(cmd, "ls") == 0) {
-        if(strcmp(arg1, "") == 0){
+        if (strcmp(arg1, "") == 0) {
             DIR *dir;
             struct dirent *entry;
     
             dir = opendir(".");
-            if (dir == NULL){
+            if (dir == NULL) {
                 out("errcode 3: file not provided\n");
                 return;
             }
+    
+            while ((entry = readdir(dir)) != NULL) {
+                struct stat st;
+                if (stat(entry->d_name, &st) == 0) {
+                    if (S_ISREG(st.st_mode)) {
+                        out("%s\n", entry->d_name);
+                    }
 
-            while ((entry = readdir(dir)) != NULL){
-                out("%s", entry->d_name);
-                out("\n");
-            
+                    else if (S_ISDIR(st.st_mode)) {
+                        out(BLUE"%s\n", entry->d_name);
+                        out(RESET);
+                    }
+                }
             }
-
-            if (closedir(dir) == -1){
+    
+            if (closedir(dir) == -1) {
                 out("errcode 3: file not provided\n");
                 return;
             }
@@ -1744,19 +1785,27 @@ void process_system_command(char *input) {
             DIR *dir;
             struct dirent *entry;
     
-            dir = opendir(arg1);
-            if (dir == NULL){
+            dir = opendir(".");
+            if (dir == NULL) {
                 out("errcode 3: file not provided\n");
                 return;
             }
+    
+            while ((entry = readdir(dir)) != NULL) {
+                struct stat st;
+                if (stat(entry->d_name, &st) == 0) {
+                    if (S_ISREG(st.st_mode)) {
+                        out("%s\n", entry->d_name);
+                    }
 
-            while ((entry = readdir(dir)) != NULL){
-                out("%s", entry->d_name);
-                out("\n");
-            
+                    else if (S_ISDIR(st.st_mode)) {
+                        out(BLUE"%s\n", entry->d_name);
+                        out(RESET);
+                    }
+                }
             }
-
-            if (closedir(dir) == -1){
+    
+            if (closedir(dir) == -1) {
                 out("errcode 3: file not provided\n");
                 return;
             }
@@ -4178,7 +4227,7 @@ void process_system_command(char *input) {
     //game8 game
     else if (strcmp(cmd, "game8") == 0){
         srand(time(NULL));
-        int guess = rand() % 15;
+        int guess = rand() % 20;
         char answer [128];
         out("Guess the Lamp\n");
         if (guess == 1){
@@ -4351,6 +4400,78 @@ void process_system_command(char *input) {
             out("A Schreder lamp that is really similar to SGS201. It's the only lamp in this game that has Cosmopolis and it is seal safe. ");
             in("", answer);
             if (strcmp(answer, "Schreder_Sapphire")== 0){
+                out("Correct!!!\n");
+            }
+
+            else{
+                out("try again bro\n");
+            }
+        }
+
+        else if (guess == 15){
+            out("What is SOX? ");
+            in("", answer);
+            if (strcmp(answer, "Low_Pressure_Sodium")== 0 || strcmp(answer, "LPS")== 0){
+                out("Correct!!!\n");
+            }
+
+            else{
+                out("try again bro\n");
+            }
+        }
+
+        else if (guess == 16){
+            out("What is SON? ");
+            in("", answer);
+            if (strcmp(answer, "HPS")== 0 || strcmp(answer, "High_Pressure_Sodium")== 0){
+                out("Correct!!!\n");
+            }
+
+            else{
+                out("try again bro\n");
+            }
+        }
+
+        else if (guess == 17){
+            out("Which company added X in the word SOX? ");
+            in("", answer);
+            if (strcmp(answer, "Philips")== 0){
+                out("Correct!!!\n");
+            }
+
+            else{
+                out("try again bro\n");
+            }
+        }
+
+        else if (guess == 18){
+            out("Which company created the trademark 'SON'");
+            in("", answer);
+            if (strcmp(answer, "Philips")== 0 || strcmp(answer, "Thorn_Lightning") == 0){
+                out("Correct!!!\n");
+            }
+
+            else{
+                out("try again bro\n");
+            }
+        }
+
+        else if (guess == 19){
+            out("When was HPS/SON/SVL invented");
+            in("", answer);
+            if (strcmp(answer, "1963") == 0){
+                out("Correct!!!\n");
+            }
+
+            else{
+                out("try again bro\n");
+            }
+        }
+
+        else if (guess == 20){
+            out("When SON/HPS lamp fires up, what colour would it glow?");
+            in("", answer);
+            if (strcmp(answer, "red") == 0 || strcmp(answer, "Red") == 0 || strcmp(answer, "Pink") == 0 || strcmp(answer, "pink") == 0){
                 out("Correct!!!\n");
             }
 
@@ -4870,6 +4991,9 @@ void process_system_command(char *input) {
 //food
 //So you and your friend {one} are going on an adventure. You start your adventure by a near by forest, where you find a {two} wandering around. For some reason the {two} suddenly turned {three}! How wierd! The {three} {two} came up to you and {one}, then suddenly {four} away. You and {one} wanted to investigate, so you followed the wierd {two} when suddenly you tripped over a {five}. When you got up, you saw the {two} go into a {six}, and when you and {one} got into the {six} you saw the {two} go into the {seven}. You and {one} went into the {seven} and saw the {two} {eight} outside through a open window! You and {one} crawled through the open window and the {two} was running towards a {nine}. You and {one} followed it into the {nine} and saw it, but then something wierd happened. The {two} suddenly trasformed into a {ten}! suddenly the {ten} that used to be a {two} spoke in english and said it's name is {eleven}. Suddenly, with a snap of it's fingers, {eleven} made {twelve} appear out of nowhere and then started eating it! What a wierd adventure!
 
+
+
+
     //memory adress stuff
 
     else if (strcmp(cmd, "memcode") == 0){
@@ -5056,10 +5180,10 @@ int main() {
         fprintf(file, "https://codepad.app/pad/822052z5n");
         fclose(file);
     }
-    out("%s\n", version);
+    out(YELLOW "%s\n", version);
     out("A project by ZileLai\n");
     out("ZL Projects' Website : https://zilelai.lab26.my/\n");
-    out("if don't know any command, use 'help'\n");
+    out("if don't know any command, use 'help'\n" RESET);
     out(GREEN"Last Command: \n" RESET);
 
 
