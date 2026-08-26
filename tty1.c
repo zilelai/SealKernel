@@ -2,7 +2,7 @@
 //THIS FILE IS LICENSED BY GNU 3.0 LICENSE IN GITHUB
 
 //UPDATE THE VERSION HERE!!!!!!!
-char version [] = "SealKernel 22.8.2026";
+char version [] = "SealKernel 26.8.2026";
 
 
 
@@ -430,6 +430,7 @@ char oripath[1024];
 char cmd[20] = "";
 char arg1[64] = "";
 char arg2[64] = "";
+char cursor = '$';
 
 int cb(const char *fpth, const struct stat *sb, int typeflag, struct FTW *ftwbuf){
     int rmdir = remove(fpth);
@@ -775,6 +776,26 @@ void process_system_command(char *input) {
         } else {
             char compile[512];
             snprintf(compile, sizeof(compile), "gcc %s -o main && ./main", arg1);
+            system(compile);
+            out("\n");
+        }
+    }
+
+    //exe-c-math
+    else if (strcmp(cmd, "exe-math") == 0) {
+        if (parsed_args >= 2) {
+            strncpy(notes_name, arg1, sizeof(notes_name) - 1);
+            notes_name[sizeof(notes_name) - 1] = '\0';
+        } else {
+            out("errcode 3: file not provided\n");
+            return; 
+        }
+
+        if (notes_mode == 0 && (strcmp(arg1, "code.txt") == 0 || strcmp(arg1, "code.c") == 0)) {
+            out("errcode 9 : permission denied \n");
+        } else {
+            char compile[512];
+            snprintf(compile, sizeof(compile), "gcc %s -o main -lm && ./main", arg1);
             system(compile);
             out("\n");
         }
@@ -1744,6 +1765,7 @@ void process_system_command(char *input) {
         out("SealKernel 19.8.2026 - Added unit function\n");
         out("SealKernel 20.8.2026 - Added rmdir function, changed goto structure and also added exit function\n");out("SealKernel 21.8.2026 - Added minimum and maximum range for random, added sub commands for time, changed ZLIO.H, print what was the last command and finally added colour codes.\n");
         out("SealKernel 22.8.2026 - Added colour codes to ls, ls-d, ls-t, ls-td and ls-dt and improved game8\n");
+        out("SealKernel 26.8.2026 - Added comments function\n");
         }
 
 
@@ -5137,6 +5159,9 @@ void process_system_command(char *input) {
         }
 
     }
+
+    //comments
+    else if (strcmp(cmd, "*") == 0){}
     
     
 
@@ -5201,31 +5226,40 @@ int main() {
     
 
     while (1) {
+        if (strcmp(users, "seal") == 0 && superior == 0) {
+            if (getcwd(cwd, sizeof(cwd)) != NULL) {
+                if (cursor == '$') {
+                    out(BLUE "%s $ ", cwd);
+                } 
+                
+                else {
+                    out(BLUE "%s %c ", cwd, cursor);
+                }
+            }
+        } 
         
-        if (strcmp(users, "seal") == 0 && superior == 0){
+        else if (strcmp(users, "seal") != 0 && superior == 0) {
+            if (cursor == '$') {
+                out(BLUE "%s $ ", cwd);
+            } 
+            
+            else {
+                out(BLUE "%s %c ", cwd, cursor);
+            }
+        } 
+        
+        else if (superior == 1) {
             if (getcwd(cwd, sizeof(cwd)) != NULL) {
                 out(BLUE "%s $ ", cwd);
             }
         }
-
-        else if (strcmp(users, "seal") != 0 && superior == 0){
-            if (getcwd(cwd, sizeof(cwd)) != NULL) {
-                out(BLUE"%s$ ", users, cwd);
-            }
-        }
-        else if (superior == 1){
-            if (getcwd(cwd, sizeof(cwd)) != NULL) {
-                out(BLUE, "%s $ ",cwd);
-            }
-        }
-
-        out(RESET);
+    
+        out("%s", RESET);
         fflush(stdout);
-
+    
         if (fgets(input, sizeof(input), stdin) == NULL) break;
         
         if (strcmp(input, "curl\n") == 0) {
-
             #ifdef LIBCURL_AVAILABLE
                 out("running curl...\n");
                 break;
@@ -5234,18 +5268,19 @@ int main() {
                 continue;
             #endif
         }
+        
         process_system_command(input);
-
+    
         time_t rawtime;
         struct tm *timeinfo;
-
+    
         time(&rawtime);
         timeinfo = localtime(&rawtime);
-
+    
         out("\033[s\033[5;1H");
         out("\033[K"); 
         out(GREEN"Last Command: %s %s", cmd, arg1);
-        out(RESET);
+        out("%s", RESET);
         out("\033[u");
         
         fflush(stdout);
