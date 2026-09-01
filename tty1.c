@@ -2,7 +2,7 @@
 //THIS FILE IS LICENSED BY GNU 3.0 LICENSE IN GITHUB
 
 //UPDATE THE VERSION HERE!!!!!!!
-char version [] = "SealKernel 26.8.2026";
+char version [] = "SealKernel 9.1.2026";
 
 
 
@@ -354,7 +354,7 @@ void filesize(const char *label, const char *filename) {
     FILE *fp = fopen(filename, "rb");
 
     if (fp == NULL) {
-        perror("errcode 3: file not provided\n");
+        perror(RED"errcode 3: file not provided\n" RESET);
         return; 
     }
 
@@ -386,7 +386,7 @@ int pkgdownload(const char *url) {
         out("installed %s\n", filename);
         return 0;
     } else {
-        out("errcode 4 : failed to install existing package\n");
+        out(RED "errcode 4 : failed to install existing package\n" RESET);
         return 1;
     }
 }
@@ -490,14 +490,14 @@ int compressor(const char *inputfile, const char *outputfile)
     FILE *in = fopen(inputfile, "rb");
     if (!in)
     {
-        perror("errcode 5: file input failed\n");
+        perror(RED "errcode 5: file input failed\n" RESET);
         return 1;
     }
 
     FILE *out = fopen(outputfile, "wb");
     if (!out)
     {
-        perror("errcode 6: file output failed\n");
+        perror(RED "errcode 6: file output failed\n" RESET);
         fclose(in);
         return 1;
     }
@@ -541,14 +541,14 @@ int decompress(const char *input_file, const char *output_file)
     FILE *in = fopen(input_file, "rb");
     if (!in)
     {
-        perror("errcode 5: file input failed\n");
+        perror(RED "errcode 5: file input failed\n" RESET);
         return 1;
     }
 
     FILE *out = fopen(output_file, "wb");
     if (!out)
     {
-        perror("errcode 6: file output failed\n");
+        perror(RED "errcode 6: file output failed\n" RESET);
         fclose(in);
         return 1;
     }
@@ -616,9 +616,9 @@ void process_system_command(char *input) {
     //chmod
     if (strcmp(cmd, "chmod") == 0) {
         if (parsed_args < 3) {
-            out("errcode 7 : only 0 and 1 are allowed\n");
+            out(RED "errcode 7 : only 0 and 1 are allowed\n" RESET);
         } else if (strcmp(arg1, notes_name) != 0) {
-            perror("errcode 3: file not provided\n");
+            perror(RED "errcode 3: file not provided\n" RESET);
         } else {
             notes_mode = atoi(arg2);
             out("changed\n");
@@ -629,7 +629,7 @@ void process_system_command(char *input) {
     //rm
     else if (strcmp(cmd, "rm") == 0) {
         if (parsed_args < 2) {
-            out("errcode 3: file not provided\n");
+            out(RED "errcode 3: file not provided\n" RESET);
         } 
         
         else {
@@ -647,7 +647,7 @@ void process_system_command(char *input) {
                 strcmp(arg1, "tty1") == 0 || 
                 strcmp(arg1, "tty2") == 0) {
                 
-                out("errcode 24: access denied: doing such process is very dangerous\n");
+                out(RED "errcode 24: access denied: doing such process is very dangerous\n" RESET);
             } 
             else {
                 char target_path[128];
@@ -662,7 +662,7 @@ void process_system_command(char *input) {
                     out("changed\n");
                 } else {
 
-                    perror("errcode 3: remove failed");
+                    perror(RED "errcode 3: remove failed" RESET);
                 }
             }
         }
@@ -690,7 +690,7 @@ void process_system_command(char *input) {
                 strcmp(arg1, "tty1") == 0 || 
                 strcmp(arg1, "tty2") == 0) {
                 
-                out("errcode 24: access denied: doing such process is very dangerous\n");
+                out(RED "errcode 24: access denied: doing such process is very dangerous\n" RESET);
             } 
             else {
                 char target_path[128];
@@ -705,7 +705,7 @@ void process_system_command(char *input) {
                     out("changed\n");
                 } else {
 
-                    perror("errcode 3: remove failed");
+                    perror(RED "errcode 3: remove failed" RESET);
                 }
             }
         }
@@ -725,7 +725,7 @@ void process_system_command(char *input) {
         if (rename(o, n) == 0) {
             out("File moved successfully.\n");
         } else {
-            perror("errcode 3: file not provided\n");
+            perror(RED "errcode 3: file not provided\n" RESET);
         }
     }
 
@@ -734,7 +734,7 @@ void process_system_command(char *input) {
 
     else if (strcmp(cmd, "save") == 0) {
         if (parsed_args < 2) {
-            out("errcode 8 : url not provided\n");
+            out(RED "errcode 8 : url not provided\n" RESET);
         } else {
             if (strstr(arg1, ".seal") != NULL) {
                 out("Script %s configuration saved successfully.\n", arg1);
@@ -767,12 +767,12 @@ void process_system_command(char *input) {
             strncpy(notes_name, arg1, sizeof(notes_name) - 1);
             notes_name[sizeof(notes_name) - 1] = '\0';
         } else {
-            out("errcode 3: file not provided\n");
+            out(RED "errcode 3: file not provided\n" RESET);
             return; 
         }
 
         if (notes_mode == 0 && (strcmp(arg1, "code.txt") == 0 || strcmp(arg1, "code.c") == 0)) {
-            out("errcode 9 : permission denied \n");
+            out(RED "errcode 9 : permission denied \n" RESET);
         } else {
             char compile[512];
             snprintf(compile, sizeof(compile), "gcc %s -o main && ./main", arg1);
@@ -787,12 +787,12 @@ void process_system_command(char *input) {
             strncpy(notes_name, arg1, sizeof(notes_name) - 1);
             notes_name[sizeof(notes_name) - 1] = '\0';
         } else {
-            out("errcode 3: file not provided\n");
+            out(RED "errcode 3: file not provided\n" RESET);
             return; 
         }
 
         if (notes_mode == 0 && (strcmp(arg1, "code.txt") == 0 || strcmp(arg1, "code.c") == 0)) {
-            out("errcode 9 : permission denied \n");
+            out(RED "errcode 9 : permission denied \n" RESET);
         } else {
             char compile[512];
             snprintf(compile, sizeof(compile), "gcc %s -o main -lm && ./main", arg1);
@@ -808,12 +808,12 @@ void process_system_command(char *input) {
             strncpy(notes_name, arg1, sizeof(notes_name) - 1);
             notes_name[sizeof(notes_name) - 1] = '\0';
         } else {
-            out("errcode 3: file not provided\n");
+            out(RED "errcode 3: file not provided\n" RESET);
             return; 
         }
 
         if (notes_mode == 0 && (strcmp(arg1, "code.txt") == 0 || strcmp(arg1, "code.c") == 0)) {
-            out("errcode 9 : permission denied \n");
+            out(RED "errcode 9 : permission denied \n" RESET);
         } else {
             char compile[512];
             snprintf(compile, sizeof(compile), "g++ %s -o main && ./main", arg1);
@@ -832,11 +832,11 @@ void process_system_command(char *input) {
             strncpy(notes_name, arg1, sizeof(notes_name) - 1);
             notes_name[sizeof(notes_name) - 1] = '\0';
         } else {
-            out("errcode 3: file not provided\n");
+            out(RED "errcode 3: file not provided\n" RESET);
             return; 
         }
         if (notes_mode == 0 && (strcmp(arg1, "code") == 0 || strcmp(arg1, "code.py") == 0)) {
-            out("errcode 9 : permission denied \n");
+            out(RED "errcode 9 : permission denied \n" RESET);
         } else {
             char compile[512];
             if (strstr(arg1, ".py") != NULL) {
@@ -857,13 +857,13 @@ void process_system_command(char *input) {
             strncpy(notes_name, arg1, sizeof(notes_name) - 1);
             notes_name[sizeof(notes_name) - 1] = '\0';
         } else {
-            out("errcode 3: file not provided\n");
+            out(RED "errcode 3: file not provided\n" RESET);
             return; 
         }
         
         
         if (notes_mode == 0 && (strcmp(arg1, "code") == 0 || strcmp(arg1, "code.java") == 0)) {
-            out("errcode 9 : permission denied \n");
+            out(RED "errcode 9 : permission denied \n" RESET);
         } else {
             char compile[512];
            
@@ -888,12 +888,12 @@ void process_system_command(char *input) {
             strncpy(notes_name, arg1, sizeof(notes_name) - 1);
             notes_name[sizeof(notes_name) - 1] = '\0';
         } else {
-            out("errcode 3: file not provided\n");
+            out(RED "errcode 3: file not provided\n" RESET);
             return; 
         }
         
         if (notes_mode == 0 && (strcmp(arg1, "code") == 0 || strcmp(arg1, "code.asm") == 0)) {
-            out("errcode 9 : permission denied \n");
+            out(RED "errcode 9 : permission denied \n" RESET);
         } else {
             char compile[512];
             char basename[256];
@@ -916,7 +916,7 @@ void process_system_command(char *input) {
     //exe-shell
     else if (strcmp(cmd, "exe-shell") == 0) {
         if (parsed_args < 2) {
-            out("errcode 3: file not provided\n");
+            out(RED "errcode 3: file not provided\n" RESET);
             return; 
         }
     
@@ -924,13 +924,13 @@ void process_system_command(char *input) {
         notes_name[sizeof(notes_name) - 1] = '\0';
     
         if (notes_mode == 0 && (strcmp(arg1, "code.txt") == 0 || strcmp(arg1, "code.sh") == 0)) {
-            out("errcode 9: permission denied\n");
+            out(RED "errcode 9: permission denied\n" RESET);
             return;
         }
 
         for (size_t i = 0; arg1[i] != '\0'; i++) {
             if (!isalnum((unsigned char)arg1[i]) && arg1[i] != '_' && arg1[i] != '-' && arg1[i] != '.') {
-                out("errcode 25: invalid filename characters\n");
+                out(RED "errcode 25: invalid filename characters\n" RESET);
                 return;
             }
         }
@@ -952,14 +952,14 @@ void process_system_command(char *input) {
 
     else if (strcmp(cmd, "rnm") == 0) { 
         if (parsed_args < 2) {
-            out("errcode 3: file not provided\n");
+            out(RED "errcode 3: file not provided\n" RESET);
         } else {
             char old_path[128], new_path[128], new_name[64];
             sprintf(old_path, "documents/%s", arg1);
             
             FILE *check = fopen(old_path, "r");
             if (!check) {
-                out("errcode 3: file not provided\n");
+                out(RED "errcode 3: file not provided\n" RESET);
             } else {
                 fclose(check);
                 out("rename: ");
@@ -974,7 +974,7 @@ void process_system_command(char *input) {
                         }
                         out("changed\n");
                     } else {
-                        out("errcode 10: name not provided\n");
+                        out(RED "errcode 10: name not provided\n" RESET);
                     }
                 }
             }
@@ -986,7 +986,7 @@ void process_system_command(char *input) {
     //mkdir
     else if (strcmp(cmd, "mkdir") == 0) { 
         if (parsed_args < 2) {
-            out("errcode 3: file not provided\n");
+            out(RED "errcode 3: file not provided\n" RESET);
         } else {
             char folder_path[128];
             sprintf(folder_path, "documents/%s", arg1);
@@ -994,7 +994,7 @@ void process_system_command(char *input) {
             if (mkdir(folder_path, 0777) == 0) {
                 out("changed\n");
             } else {
-                out("errcode 10 : folder unable to generate\n");
+                out(RED "errcode 10 : folder unable to generate\n" RESET);
             }
         }
     }
@@ -1006,7 +1006,7 @@ void process_system_command(char *input) {
     
             dir = opendir(".");
             if (dir == NULL){
-                out("errcode 3: file not provided\n");
+                out(RED "errcode 3: file not provided\n" RESET);
                 return;
             }
 
@@ -1023,7 +1023,7 @@ void process_system_command(char *input) {
             }
 
             if (closedir(dir) == -1){
-                out("errcode 3: file not provided\n");
+                out(RED "errcode 3: file not provided\n" RESET);
                 return;
             }
         }
@@ -1034,7 +1034,7 @@ void process_system_command(char *input) {
     
             dir = opendir(".");
             if (dir == NULL){
-                out("errcode 3: file not provided\n");
+                out(RED "errcode 3: file not provided\n" RESET);
                 return;
             }
 
@@ -1051,7 +1051,7 @@ void process_system_command(char *input) {
             }
 
             if (closedir(dir) == -1){
-                out("errcode 3: file not provided\n");
+                out(RED "errcode 3: file not provided\n" RESET);
                 return;
             }
         }
@@ -1072,7 +1072,7 @@ void process_system_command(char *input) {
     
             dir = opendir(".");
             if (dir == NULL){
-                out("errcode 3: file not provided\n");
+                out(RED "errcode 3: file not provided\n" RESET);
                 return;
             }
 
@@ -1081,7 +1081,7 @@ void process_system_command(char *input) {
 
                 struct stat pstd;
                 if (stat(fpath, &pstd) != 0) {
-                    perror("errcode 11 : file status down");
+                    perror(RED "errcode 11 : file status down" RESET);
                     continue;
                 }
 
@@ -1112,7 +1112,7 @@ void process_system_command(char *input) {
                 }
             }
             if (closedir(dir) == -1){
-                out("errcode 3: file not provided\n");
+                out(RED "errcode 3: file not provided\n" RESET);
                 return;
             }
         }
@@ -1127,7 +1127,7 @@ void process_system_command(char *input) {
     
             dir = opendir(arg1);
             if (dir == NULL){
-                out("errcode 3: file not provided\n");
+                out(RED "errcode 3: file not provided\n" RESET);
                 return;
             }
 
@@ -1136,7 +1136,7 @@ void process_system_command(char *input) {
 
                 struct stat pstd;
                 if (stat(fpath, &pstd) != 0) {
-                    perror("errcode 11 : file status down");
+                    perror(RED "errcode 11 : file status down" RESET);
                     continue;
                 }
 
@@ -1167,7 +1167,7 @@ void process_system_command(char *input) {
                 }
             }
             if (closedir(dir) == -1){
-                out("errcode 3: file not provided\n");
+                out(RED "errcode 3: file not provided\n" RESET);
                 return;
             }
         }
@@ -1188,7 +1188,7 @@ void process_system_command(char *input) {
     
             dir = opendir(".");
             if (dir == NULL){
-                out("errcode 3: file not provided\n");
+                out(RED "errcode 3: file not provided\n" RESET);
                 return;
             }
     
@@ -1223,7 +1223,7 @@ void process_system_command(char *input) {
             }
     
             if (closedir(dir) == -1){
-                out("errcode 3: file not provided\n");
+                out(RED "errcode 3: file not provided\n" RESET);
                 return;
             }
         }
@@ -1238,7 +1238,7 @@ void process_system_command(char *input) {
     
             dir = opendir(arg1);
             if (dir == NULL){
-                out("errcode 3: file not provided\n");
+                out(RED "errcode 3: file not provided\n" RESET);
                 return;
             }
     
@@ -1273,7 +1273,7 @@ void process_system_command(char *input) {
             }
     
             if (closedir(dir) == -1){
-                out("errcode 3: file not provided\n");
+                out(RED "errcode 3: file not provided\n" RESET);
                 return;
             }
         }
@@ -1294,7 +1294,7 @@ void process_system_command(char *input) {
     
             dir = opendir(".");
             if (dir == NULL){
-                out("errcode 3: file not provided\n");
+                out(RED "errcode 3: file not provided\n" RESET);
                 return;
             }
     
@@ -1329,7 +1329,7 @@ void process_system_command(char *input) {
             }
     
             if (closedir(dir) == -1){
-                out("errcode 3: file not provided\n");
+                out(RED "errcode 3: file not provided\n" RESET);
                 return;
             }
         }
@@ -1344,7 +1344,7 @@ void process_system_command(char *input) {
     
             dir = opendir(arg1);
             if (dir == NULL){
-                out("errcode 3: file not provided\n");
+                out(RED "errcode 3: file not provided\n" RESET);
                 return;
             }
     
@@ -1379,7 +1379,7 @@ void process_system_command(char *input) {
             }
     
             if (closedir(dir) == -1){
-                out("errcode 3: file not provided\n");
+                out(RED "errcode 3: file not provided\n" RESET);
                 return;
             }
         }
@@ -1394,7 +1394,7 @@ void process_system_command(char *input) {
             strcpy(notes_name, arg1);
         }
         if (notes_mode == 0 && parsed_args >= 2 && strcmp(arg1, "notes.txt") == 0) {
-            out("errcode 9 : permission denied \n");
+            out(RED "errcode 9 : permission denied \n" RESET);
         } else {
             get_current_path(loc, notes_name, notes_path);
             file = fopen(notes_path, "w");
@@ -1410,7 +1410,7 @@ void process_system_command(char *input) {
                 fclose(file);
                 out("Saved successfully.\n");
             } else {
-                out("errcode 12 : could not create file\n");
+                out(RED "errcode 12 : could not create file\n" RESET);
             }
         }
     }
@@ -1424,7 +1424,7 @@ void process_system_command(char *input) {
             strcpy(notes_name, arg1);
         }
         if (notes_mode == 0 && parsed_args >= 2 && strcmp(arg1, "notes.txt") == 0) {
-            out("errcode 9 : permission denied \n");
+            out(RED "errcode 9 : permission denied \n" RESET);
         } else {
             get_current_path(loc, notes_name, notes_path);
             file = fopen(notes_path, "a+");
@@ -1440,7 +1440,7 @@ void process_system_command(char *input) {
                 fclose(file);
                 out("Saved successfully.\n");
             } else {
-                out("errcode 12 : could not create file\n");
+                out(RED "errcode 12 : could not create file\n" RESET);
             }
         }
     }
@@ -1455,7 +1455,7 @@ void process_system_command(char *input) {
         }
         
         if (notes_mode == 0 && parsed_args >= 2 && strcmp(arg1, "code.txt") == 0) {
-            out("errcode 9 : permission denied \n");
+            out(RED "errcode 9 : permission denied \n" RESET);
         } else {
             out("PAD EDITOR (%s)\n", notes_name);
             out("Type exit to save and exit\n\n");
@@ -1481,7 +1481,75 @@ void process_system_command(char *input) {
                 fclose(file);
                 out("saved\n");
             } else {
-                out("errcode 13 : could not open file\n");
+                out(RED "errcode 13 : could not open file\n" RESET);
+            }
+        }
+    }
+
+
+    //ow
+
+    else if (strcmp(cmd, "ow") == 0){
+        
+
+        if (strcmp(arg1, "bootloader.cpp") == 0 || strcmp(arg1, "tty1.cpp") == 0 || strcmp(arg1, "tty2.cpp") == 0 || strcmp(arg1, "tty1") == 0 || strcmp(arg1, "tty2") == 0){
+            out(RED "errcode 24: access denied: doing such process is very dangerous\n" RESET);
+        }
+
+        else{
+            FILE *fptr;
+
+            fptr = fopen(arg1, "w");
+            fprintf(fptr, "");
+            fclose(fptr);
+        }
+
+        
+    }
+
+    //ow-r
+
+    else if (strcmp(cmd, "ow-r") == 0) { 
+        if (parsed_args >= 2) {
+            strcpy(notes_name, arg1);
+        }
+        
+        if (notes_mode == 0 && parsed_args >= 2 && strcmp(arg1, "code.txt") == 0) {
+            out(RED "errcode 9 : permission denied \n" RESET);
+        } else {
+
+            if (strcmp(arg1, "bootloader.cpp") == 0 || strcmp(arg1, "tty1.cpp") == 0 || strcmp(arg1, "tty2.cpp") == 0 || strcmp(arg1, "tty1") == 0 || strcmp(arg1, "tty2") == 0){
+                out(RED "errcode 24: access denied: doing such process is very dangerous\n" RESET);
+            }
+
+            else{
+                out("PAD EDITOR (%s)\n", notes_name);
+                out("Type exit to save and exit\n\n");
+                char line_buffer[512]; 
+                get_current_path(loc, notes_name, notes_path);
+                file = fopen(notes_path, "w");
+            
+                if (file) {
+                    fseek(file, 0, SEEK_SET); 
+                    while (fgets(line_buffer, sizeof(line_buffer), file) != NULL) {
+                        out("%s", line_buffer);
+                    }
+                    while (1) {
+                        fflush(stdout);
+                        if (fgets(content, sizeof(content), stdin) == NULL) {
+                            break; 
+                        }
+                        if (strcmp(content, "exit\n") == 0) {
+                            break; 
+                        }
+                        fprintf(file, "%s", content);
+                    }
+                    fclose(file);
+                    out("saved\n");
+                }
+                else {
+                    out(RED "errcode 13 : could not open file\n" RESET);
+                }
             }
         }
     }
@@ -1492,10 +1560,10 @@ void process_system_command(char *input) {
     //r
     else if (strcmp(cmd, "r") == 0) {
         if (parsed_args < 2) {
-            out("errcode 3: file not provided\n");
+            out(RED "errcode 3: file not provided\n" RESET);
         } else {
             if (strcmp(arg1, notes_name) == 0 && notes_mode == 0) {
-                out("errcode 9 : permission denied\n");
+                out(RED "errcode 9 : permission denied\n" RESET);
             } else {
                 char read_path[128], line_buffer[256];
                 get_current_path(loc, arg1, read_path);
@@ -1508,7 +1576,7 @@ void process_system_command(char *input) {
                     out(" \n");
                     fclose(rf);
                 } else {
-                    out("errcode 3: file not provided\n");
+                    out(RED "errcode 3: file not provided\n" RESET);
                 }
             }
         }
@@ -1519,10 +1587,10 @@ void process_system_command(char *input) {
     //head
     else if (strcmp(cmd, "head") == 0) {
         if (parsed_args < 2) {
-            out("errcode 3: file not provided\n");
+            out(RED "errcode 3: file not provided\n" RESET);
         } else {
             if (strcmp(arg1, notes_name) == 0 && notes_mode == 0) {
-                out("errcode 9 : permission denied\n");
+                out(RED "errcode 9 : permission denied\n" RESET);
             } else {
                 int linesread = 10;
                 out ("Input how many lines you want to see this file: ");
@@ -1539,7 +1607,7 @@ void process_system_command(char *input) {
                     }
                     fclose(rf);
                 } else {
-                    out("errcode 3: file not provided\n");
+                    out(RED "errcode 3: file not provided\n" RESET);
                 }
             }
         }
@@ -1550,10 +1618,10 @@ void process_system_command(char *input) {
     //tail
     else if (strcmp(cmd, "tail") == 0) {
         if (parsed_args < 2) {
-            out("errcode 3: file not provided\n");
+            out(RED "errcode 3: file not provided\n" RESET);
         } else {
             if (strcmp(arg1, notes_name) == 0 && notes_mode == 0) {
-                out("errcode 9 : permission denied\n");
+                out(RED "errcode 9 : permission denied\n" RESET);
             } else {
                 int linesread = 10;
                 out ("Input how many lines you want to see this file: ");
@@ -1570,7 +1638,7 @@ void process_system_command(char *input) {
                     }
                     fclose(rf);
                 } else {
-                    out("errcode 3: file not provided\n");
+                    out(RED "errcode 3: file not provided\n" RESET);
                 }
             }
         }
@@ -1678,13 +1746,13 @@ void process_system_command(char *input) {
     else if (strcmp(cmd, "goto") == 0) {
         if (arg1[0] != '\0') {
             if (strcmp(arg1, "root") == 0){
-                out("errcode 26 : permission not available\n");
+                out(RED "errcode 26 : permission not available\n" RESET);
             }
 
             else {
                 if (chdir(arg1) == 0) {}
                 else {
-                    perror("errcode 3 : file not provided");
+                    perror(RED "errcode 3 : file not provided" RESET);
                 }
             }
             
@@ -1697,7 +1765,7 @@ void process_system_command(char *input) {
     else if (strcmp(cmd, "sudo-on") == 0){
 
         if (strcmp(users, "seal") != 0){
-            out("errcode 14 : user doesn't have sudo power. Exit your user to either root or seal user\n");
+            out(RED "errcode 14 : user doesn't have sudo power. Exit your user to either root or seal user\n" RESET);
         }
         else {
             superior = 1;
@@ -1733,11 +1801,11 @@ void process_system_command(char *input) {
         if (getcwd(cwd, sizeof(cwd)) != NULL) {
             out("%s\n", cwd);
             if (strcmp(cwd, "/home/") == 0){
-                out("Warning: some functions won't be available here, switch to your user directory to use those functions\n");
+                out(YELLOW "Warning: some functions won't be available here, switch to your user directory to use those functions\n" RESET);
             } 
         }
         else {
-            perror("errcode 13 : could not open file");
+            perror(RED "errcode 13 : could not open file" RESET);
         }
     }
 
@@ -1766,6 +1834,7 @@ void process_system_command(char *input) {
         out("SealKernel 20.8.2026 - Added rmdir function, changed goto structure and also added exit function\n");out("SealKernel 21.8.2026 - Added minimum and maximum range for random, added sub commands for time, changed ZLIO.H, print what was the last command and finally added colour codes.\n");
         out("SealKernel 22.8.2026 - Added colour codes to ls, ls-d, ls-t, ls-td and ls-dt and improved game8\n");
         out("SealKernel 26.8.2026 - Added comments function\n");
+        out("SealKernel 9.1.2026 - Added cursor function (beta) and overwrite function\n");
         }
 
 
@@ -1779,7 +1848,7 @@ void process_system_command(char *input) {
     
             dir = opendir(".");
             if (dir == NULL) {
-                out("errcode 3: file not provided\n");
+                out(RED "errcode 3: file not provided\n" RESET);
                 return;
             }
     
@@ -1798,7 +1867,7 @@ void process_system_command(char *input) {
             }
     
             if (closedir(dir) == -1) {
-                out("errcode 3: file not provided\n");
+                out(RED "errcode 3: file not provided\n" RESET);
                 return;
             }
         }
@@ -1809,7 +1878,7 @@ void process_system_command(char *input) {
     
             dir = opendir(".");
             if (dir == NULL) {
-                out("errcode 3: file not provided\n");
+                out(RED "errcode 3: file not provided\n" RESET);
                 return;
             }
     
@@ -1828,7 +1897,7 @@ void process_system_command(char *input) {
             }
     
             if (closedir(dir) == -1) {
-                out("errcode 3: file not provided\n");
+                out(RED "errcode 3: file not provided\n" RESET);
                 return;
             }
         }
@@ -1910,6 +1979,8 @@ void process_system_command(char *input) {
         out("cc - check character count\n");
         out("memcode - turns a string to memory address\n");
         out("strcode - turns a memory address to another memory address\n");
+        out("ow - overwrite a file\n");
+        out("ow-r - overwrite and replace with another text\n");
         
         
 
@@ -1945,6 +2016,7 @@ void process_system_command(char *input) {
         out("browser - show the code of a page\n");
         out("luck - shows ur luck\n");
         out("unit - checks units\n");
+        out("cursor (beta) - change your cursor\n");
 
         out(" \n");
         out("4. ASCII Arts\n");
@@ -2657,7 +2729,8 @@ void process_system_command(char *input) {
 
     //lemon ASCII art
     else if (strcmp(cmd, "lemon") == 0) {
-        out(R"(..................................................
+        out(R"( 
+            ..................................................
             ...........:::^^~~~~~~~~~^^::.....................
             .......::^~~~!!!!!!!!!!777777!~^::................
             ...::^~~~~~~~~~~~~!!!!!7777777??77!~:.............
@@ -2728,7 +2801,7 @@ void process_system_command(char *input) {
                 output = firstnum / secondnum;
                 out("%f\n", output);
             } else {
-                out("Error: Division by zero\n");
+                out(RED "Error: Division by zero\n" RESET);
             }
         }
         else if (op[0] == '^' || strcmp(op, "pow") == 0) {
@@ -2740,7 +2813,7 @@ void process_system_command(char *input) {
                 output = pow(firstnum, 1.0 / secondnum);
                 out("%f\n", output);
             } else {
-                out("Error: Root degree cannot be zero\n");
+                out(RED "Error: Root degree cannot be zero\n" RESET);
             }
         }
         else if (op[0] == '%' || strcmp(op, "rem") == 0) {
@@ -2752,7 +2825,7 @@ void process_system_command(char *input) {
             }
         }
         else {
-            out("errcode 15 : operator not found\n");
+            out(RED "errcode 15 : operator not found\n" RESET);
         }
     }
 
@@ -4067,6 +4140,50 @@ void process_system_command(char *input) {
         chdir("/home");
         strcpy(memuser, "guest"); 
     }
+
+
+    //users delete function
+
+    else if (strcmp(cmd, "users-remove") == 0) {
+        if (parsed_args < 2) {
+            out("errcode 3: file not provided\n");
+        } 
+        
+        else {
+            if (strcmp(arg1, "tty1.cpp") == 0 || 
+                strcmp(arg1, "tty2.cpp") == 0 || 
+                strcmp(arg1, "qubabasdwiaisd.txt") == 0 || 
+                strcmp(arg1, "compress.h") == 0 || 
+                strcmp(arg1, "decompress.h") == 0 || 
+                strcmp(arg1, "stb_image.h") == 0 || 
+                strcmp(arg1, "zlio.h") == 0 || 
+                strcmp(arg1, "root") == 0 || 
+                strcmp(arg1, "text.text") == 0 || 
+                strcmp(arg1, "seal.text") == 0 || 
+                strcmp(arg1, "bootloader") == 0 || 
+                strcmp(arg1, "tty1") == 0 || 
+                strcmp(arg1, "tty2") == 0) {
+                
+                out("errcode 24: access denied: doing such process is very dangerous\n");
+            } 
+            else {
+                char target_path[128];
+                get_current_path(loc, arg1, target_path);
+    
+
+                if (rmrf(target_path) == 0) {
+                    if (strcmp(notes_name, arg1) == 0) {
+                        strcpy(notes_name, "notes.txt");
+                        notes_mode = 0;
+                    }
+                    out("changed\n");
+                } else {
+
+                    perror("errcode 3: remove failed");
+                }
+            }
+        }
+    }
     
 
     //who am i???
@@ -4204,7 +4321,7 @@ void process_system_command(char *input) {
     
         FILE *fp = popen(command, "r");
         if (!fp) {
-            perror("errcode 23 : failed to run curl");
+            perror(RED "errcode 23 : failed to run curl" RESET);
             return;
         }
     
@@ -4226,7 +4343,7 @@ void process_system_command(char *input) {
     
         FILE *fp = popen(command, "r");
         if (!fp) {
-            perror("errcode 23 : failed to find your ip adress");
+            perror(RED "errcode 23 : failed to find your ip adress" RESET);
             return;
         }
     
@@ -4754,10 +4871,10 @@ void process_system_command(char *input) {
     //wc
     else if (strcmp(cmd, "wc") == 0) {
         if (parsed_args < 2) {
-            out("errcode 3: file not provided\n");
+            out(RED "errcode 3: file not provided\n" RESET);
         } else {
             if (strcmp(arg1, notes_name) == 0 && notes_mode == 0) {
-                out("errcode 9: permission denied\n");
+                out(RED "errcode 9: permission denied\n" RESET);
             } else {
                 char read_path[128];
                 get_current_path(loc, arg1, read_path);
@@ -4781,7 +4898,7 @@ void process_system_command(char *input) {
                     snprintf(outbuffer, sizeof(outbuffer), "%d\n", count);
                     out(outbuffer);
                 } else {
-                    out("errcode 3: file not provided\n");
+                    out(RED "errcode 3: file not provided\n" RESET);
                 }
             }
         }
@@ -4810,7 +4927,9 @@ void process_system_command(char *input) {
     else if (strcmp(cmd, "find") == 0) {
         std::ifstream file(arg1);
         if (!file.is_open()) {
+            out(RED);
             std::cout << "errcode 3: file not provided" << arg1 << std::endl;
+            out(RESET);
             return; 
         }
     
@@ -4834,7 +4953,9 @@ void process_system_command(char *input) {
         }
     
         if (!found) {
+            out(RED);
             std::cout << "errcode25: the word you search for doesn't exist in this file" << std::endl;
+            out(RESET);
         }
        
     }
@@ -5162,6 +5283,13 @@ void process_system_command(char *input) {
 
     //comments
     else if (strcmp(cmd, "*") == 0){}
+
+
+    //cursor changer
+    else if (strcmp(cmd, "cursor") == 0){
+        in("Type your cursor (only 1 character): ", &cursor);
+        out("changed\n");
+    }
     
     
 
@@ -5170,12 +5298,13 @@ void process_system_command(char *input) {
     
     else if (strcmp(cmd, "sudo-exit") == 0) {
         if (superior == 1){exit(0);}
-        else {out("errcode 2 : sudo user undetected, switch to sudo user\n");}
+        else {out(RED "errcode 2 : sudo user undetected, switch to sudo user\n" RESET);}
         
     }
 
     else {
-        out("errcode 1 : command '%s' not found\n", cmd);
+        out(RED "errcode 1 : command '%s' not found\n", cmd);
+        out(RESET);
     }
 
 
@@ -5225,7 +5354,7 @@ int main() {
 
     
 
-    while (1) {
+    while (1){
         if (strcmp(users, "seal") == 0 && superior == 0) {
             if (getcwd(cwd, sizeof(cwd)) != NULL) {
                 if (cursor == '$') {
