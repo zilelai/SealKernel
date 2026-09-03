@@ -2,7 +2,7 @@
 //THIS FILE IS LICENSED BY GNU 3.0 LICENSE IN GITHUB
 
 //UPDATE THE VERSION HERE!!!!!!!
-char version [] = "SealKernel 9.1.2026";
+char version [] = "SealKernel 3.9.2026";
 
 
 
@@ -1834,7 +1834,8 @@ void process_system_command(char *input) {
         out("SealKernel 20.8.2026 - Added rmdir function, changed goto structure and also added exit function\n");out("SealKernel 21.8.2026 - Added minimum and maximum range for random, added sub commands for time, changed ZLIO.H, print what was the last command and finally added colour codes.\n");
         out("SealKernel 22.8.2026 - Added colour codes to ls, ls-d, ls-t, ls-td and ls-dt and improved game8\n");
         out("SealKernel 26.8.2026 - Added comments function\n");
-        out("SealKernel 9.1.2026 - Added cursor function (beta) and overwrite function\n");
+        out("SealKernel 1.9.2026 - Added cursor function (beta) and overwrite function\n");
+        out("SealKernel 3.9.2026 - Added previous command function and removed previous command from homescreen\n");
         }
 
 
@@ -1981,6 +1982,7 @@ void process_system_command(char *input) {
         out("strcode - turns a memory address to another memory address\n");
         out("ow - overwrite a file\n");
         out("ow-r - overwrite and replace with another text\n");
+        out("!! - see previous command");
         
         
 
@@ -5290,6 +5292,27 @@ void process_system_command(char *input) {
         in("Type your cursor (only 1 character): ", &cursor);
         out("changed\n");
     }
+
+    else if (strcmp(cmd, "!!") == 0){
+        FILE *fptr;
+
+        fptr = fopen("qubabasdwiaisd.txt", "r");
+
+        if(fptr == NULL){
+            out(RED "errcode 3: file not provided\n" RESET);
+        }
+
+        char buffer[MAX];
+        char lastline [MAX] = "";
+
+        while(fgets(buffer, sizeof(buffer), fptr) != NULL){
+            snprintf(lastline, sizeof(lastline), "%s", buffer);
+        }
+
+        out(GREEN "%s", buffer);
+        out(RESET);
+
+    }
     
     
 
@@ -5338,7 +5361,6 @@ int main() {
     out("A project by ZileLai\n");
     out("ZL Projects' Website : https://zilelai.lab26.my/\n");
     out("if don't know any command, use 'help'\n" RESET);
-    out(GREEN"Last Command: \n" RESET);
 
 
     
@@ -5399,18 +5421,6 @@ int main() {
         }
         
         process_system_command(input);
-    
-        time_t rawtime;
-        struct tm *timeinfo;
-    
-        time(&rawtime);
-        timeinfo = localtime(&rawtime);
-    
-        out("\033[s\033[5;1H");
-        out("\033[K"); 
-        out(GREEN"Last Command: %s %s", cmd, arg1);
-        out("%s", RESET);
-        out("\033[u");
         
         fflush(stdout);
     }
