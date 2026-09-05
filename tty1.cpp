@@ -2,7 +2,7 @@
 //THIS FILE IS LICENSED BY GNU 3.0 LICENSE IN GITHUB
 
 //UPDATE THE VERSION HERE!!!!!!!
-char version [] = "SealKernel 3.9.2026";
+char version [] = "SealKernel 5.9.2026";
 
 
 
@@ -1836,6 +1836,7 @@ void process_system_command(char *input) {
         out("SealKernel 26.8.2026 - Added comments function\n");
         out("SealKernel 1.9.2026 - Added cursor function (beta) and overwrite function\n");
         out("SealKernel 3.9.2026 - Added previous command function and removed previous command from homescreen\n");
+        out("SealKernel 5.9.2026 - Improved game8 and added chooser program\n");
         }
 
 
@@ -1982,7 +1983,7 @@ void process_system_command(char *input) {
         out("strcode - turns a memory address to another memory address\n");
         out("ow - overwrite a file\n");
         out("ow-r - overwrite and replace with another text\n");
-        out("!! - see previous command");
+        out("!! - see previous command\n");
         
         
 
@@ -2019,6 +2020,7 @@ void process_system_command(char *input) {
         out("luck - shows ur luck\n");
         out("unit - checks units\n");
         out("cursor (beta) - change your cursor\n");
+        out("chooser - let the program choose what to pick\n");
 
         out(" \n");
         out("4. ASCII Arts\n");
@@ -4364,11 +4366,10 @@ void process_system_command(char *input) {
     }
 
 
-
     //game8 game
     else if (strcmp(cmd, "game8") == 0){
         srand(time(NULL));
-        int guess = rand() % 20;
+        int guess = rand() % 23;
         char answer [128];
         out("Guess the Lamp\n");
         if (guess == 1){
@@ -4613,6 +4614,32 @@ void process_system_command(char *input) {
             out("When SON/HPS lamp fires up, what colour would it glow?");
             in("", answer);
             if (strcmp(answer, "red") == 0 || strcmp(answer, "Red") == 0 || strcmp(answer, "Pink") == 0 || strcmp(answer, "pink") == 0){
+                out("Correct!!!\n");
+            }
+
+            else{
+                out("try again bro\n");
+            }
+        }
+
+        else if (guess == 21){
+            out("What is the CRI Index of HPS? ");
+            in("", answer);
+
+            if (strcmp(answer, "20-30") == 0){
+                out("Correct!!!\n");
+            }
+
+            else{
+                out("try again bro\n");
+            }
+        }
+
+        else if (guess == 22){
+            out("What is the CRI Index of LPS? ");
+            in("", answer);
+
+            if (strcmp(answer, "0-20") == 0){
                 out("Correct!!!\n");
             }
 
@@ -5293,6 +5320,8 @@ void process_system_command(char *input) {
         out("changed\n");
     }
 
+
+    //view last command
     else if (strcmp(cmd, "!!") == 0){
         FILE *fptr;
 
@@ -5312,6 +5341,27 @@ void process_system_command(char *input) {
         out(GREEN "%s", buffer);
         out(RESET);
 
+    }
+
+    //similar to bool program
+
+
+    else if (strcmp(cmd, "chooser") == 0){
+        int chooser = rand() % 2;
+        srand(time(NULL));
+        char opt1 [124];
+        char opt2 [124];
+        in("Give your first option: ", opt1);
+
+        in("Give your second option: ", opt2);
+
+        if(chooser == 1){
+            out("%s\n", opt2);
+        }
+
+        else if (chooser == 0){
+            out("%s\n", opt1);
+        }
     }
     
     
