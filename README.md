@@ -20,10 +20,10 @@ MacOS: brew install raylib
 
 <h2>To run your program in linux terminal, first:</h2>
 
--1. nano sealos.c
+-1. check the location where SealKernel tty1/tty2 was located
 -2. code paste
--3. gcc sealos.c -o sealoslatest -lm (sealkernel 27 and above), gcc sealos.c -o sealos (sealkernel 26 and below)
--4. ./sealos
+-3. g++ tty1.cpp -o tty1 (for tty1) or gcc tty2.cpp -o tty2 -lm (for tty2)
+-4. ./tty1 or ./tty2
 
 
 RUN WITHOUT SETUP: https://codepad.app/pad/xt67l97o
