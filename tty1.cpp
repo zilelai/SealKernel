@@ -2,7 +2,7 @@
 //THIS FILE IS LICENSED BY GNU 3.0 LICENSE IN GITHUB
 
 //UPDATE THE VERSION HERE!!!!!!!
-char version [] = "SealKernel 5.9.2026";
+char version [] = "SealKernel 6.9.2026";
 
 
 
@@ -29,6 +29,9 @@ using namespace std;
 #include <cmath>
 #include <fstream>
 #include <ftw.h>
+#include <vector>
+#include <sys/ioctl.h>
+
 
 
 
@@ -1486,6 +1489,135 @@ void process_system_command(char *input) {
         }
     }
 
+    else if (strcmp(cmd, "padim") == 0) { 
+        if (parsed_args >= 2) {
+            strcpy(notes_name, arg1);
+        }
+        
+        if (notes_mode == 0 && parsed_args >= 2 && strcmp(arg1, "code.txt") == 0) {
+            out(RED "errcode 9 : permission denied \n" RESET);
+        } else {
+            get_current_path(loc, notes_name, notes_path);
+            
+            struct termios orig_termios;
+            tcgetattr(STDIN_FILENO, &orig_termios);
+            
+            struct termios raw = orig_termios;
+            raw.c_lflag &= ~(ECHO | ICANON | ISIG | IEXTEN);
+            raw.c_iflag &= ~(IXON | ICRNL);
+            raw.c_oflag &= ~(OPOST);
+            tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+
+            int cx = 0, cy = 0;
+            struct winsize ws;
+            int screenrows = 24, screencols = 80;
+            if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) != -1 && ws.ws_col != 0) {
+                screenrows = ws.ws_row;
+                screencols = ws.ws_col;
+            }
+
+            std::vector<std::string> file_rows;
+            file = fopen(notes_path, "r");
+            if (file) {
+                char line_buffer[512];
+                while (fgets(line_buffer, sizeof(line_buffer), file) != NULL) {
+                    std::string line(line_buffer);
+                    if (!line.empty() && line.back() == '\n') line.pop_back();
+                    if (!line.empty() && line.back() == '\r') line.pop_back();
+                    file_rows.push_back(line);
+                }
+                fclose(file);
+            }
+            if (file_rows.empty()) {
+                file_rows.push_back("");
+            }
+
+            bool editing = true;
+            while (editing) {
+                std::cout << "\x1b[?25l\x1b[H";
+
+                for (int y = 0; y < screenrows; y++) {
+                    if (y == screenrows - 1) {
+                        std::cout << "\x1b[K\x1b[7m PAD EDITOR (" << notes_name << ") | Line: " 
+                                  << (cy + 1) << "/" << file_rows.size() << " Col: " << (cx + 1) 
+                                  << " | Type 'exit' on an empty line to save \x1b[m";
+                    } else {
+                        std::cout << "\x1b[K";
+                        if (y < (int)file_rows.size()) {
+                            std::cout << file_rows[y];
+                        } else {
+                            std::cout << "~";
+                        }
+                    }
+                    if (y < screenrows - 1) std::cout << "\r\n";
+                }
+
+                std::cout << "\x1b[" << (cy + 1) << ";" << (cx + 1) << "H\x1b[?25h";
+                std::cout.flush();
+
+                char c;
+                if (read(STDIN_FILENO, &c, 1) != 1) break;
+
+                if (c == '\x1b') {
+                    char seq1, seq2;
+                    if (read(STDIN_FILENO, &seq1, 1) == 1 && read(STDIN_FILENO, &seq2, 1) == 1) {
+                        if (seq1 == '[') {
+                            switch (seq2) {
+                                case 'A': if (cy > 0) cy--; break;
+                                case 'B': if (cy < (int)file_rows.size() - 1) cy++; break;
+                                case 'C': if (cx < (int)file_rows[cy].size()) cx++; break;
+                                case 'D': if (cx > 0) cx--; break;
+                            }
+                            if (cx > (int)file_rows[cy].size()) cx = file_rows[cy].size();
+                        }
+                    }
+                } else if (c == 127 || c == 8) {
+                    if (cx > 0) {
+                        file_rows[cy].erase(cx - 1, 1);
+                        cx--;
+                    } else if (cy > 0) {
+                        cx = file_rows[cy - 1].size();
+                        file_rows[cy - 1] += file_rows[cy];
+                        file_rows.erase(file_rows.begin() + cy);
+                        cy--;
+                    }
+                } else if (c == '\r' || c == '\n') {
+                    if (file_rows[cy] == "exit") {
+                        file_rows.erase(file_rows.begin() + cy);
+                        editing = false;
+                    } else {
+                        std::string remaining = file_rows[cy].substr(cx);
+                        file_rows[cy] = file_rows[cy].substr(0, cx);
+                        file_rows.insert(file_rows.begin() + cy + 1, remaining);
+                        cy++;
+                        cx = 0;
+                    }
+                } else if (c >= 32 && c <= 126) {
+                    file_rows[cy].insert(cx, 1, c);
+                    cx++;
+                }
+            }
+
+            tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
+            std::cout << "\x1b[2J\x1b[H";
+
+            file = fopen(notes_path, "w");
+            if (file) {
+                for (size_t i = 0; i < file_rows.size(); i++) {
+                    fprintf(file, "%s\n", file_rows[i].c_str());
+                }
+                fclose(file);
+                out("saved\n");
+            } else {
+                out(RED "errcode 13 : could not save file\n" RESET);
+            }
+        }
+    }
+
+
+
+
+
 
     //ow
 
@@ -1837,6 +1969,7 @@ void process_system_command(char *input) {
         out("SealKernel 1.9.2026 - Added cursor function (beta) and overwrite function\n");
         out("SealKernel 3.9.2026 - Added previous command function and removed previous command from homescreen\n");
         out("SealKernel 5.9.2026 - Improved game8 and added chooser program\n");
+        out("SealKernel 6.9.2026 - Added padim, sealkernel and improved chooser function\n");
         }
 
 
@@ -1932,6 +2065,7 @@ void process_system_command(char *input) {
         out("w - write a file\n");
         out("pen - write a file but better than w\n");
         out("pad - write a file but better than w and pen\n");
+        out("padim - write a file but better than pad, w and pen\n");
         out("r - read a file\n");
         out("info - view system infomation\n");
         out("about - view system infomation but have more infomation\n");
@@ -2020,13 +2154,14 @@ void process_system_command(char *input) {
         out("luck - shows ur luck\n");
         out("unit - checks units\n");
         out("cursor (beta) - change your cursor\n");
-        out("chooser - let the program choose what to pick\n");
+        out("chooser - let the program choose what to pick for your option (2)\n");
 
         out(" \n");
         out("4. ASCII Arts\n");
         out(" \n");
         out("lemon - lemon art\n");
         out("eggs - eggs art\n");
+        out("sealkernel - logo of sealkernel\n");
 
         out(" \n");
         out("5. Games\n");
@@ -3712,6 +3847,11 @@ void process_system_command(char *input) {
         out("%d\n", n);
     }
 
+    else if (strcmp(cmd, "bool") == 0){
+        srand(time(NULL));
+        int n = rand() % 2;
+        out("%d\n", n);
+    }
 
     //image program
 
@@ -4863,6 +5003,25 @@ void process_system_command(char *input) {
         tagged();
     }
 
+    ///sealkernel
+
+    else if (strcmp(cmd, "sealkernel") == 0){
+        out("                 ..^~:::::::::::....              \n");
+        out("            .::::.......:^::.. ..:..:::.          \n");
+        out("       ...::..          .:.:.  .::.   .:^:        \n");
+        out("      ::..              .: ~:. ::..      .::      \n");
+        out("    ::.   ..^ :^..      .. . :. ...  :     :^.    \n");
+        out("   .^    P@G:  7&#~      ...         ~       ^.   \n");
+        out("  :^     ~!::!^.:!^  .   ::. ::::.^  ~. .    .^   \n");
+        out("  ^:     ~^?B@@B!:~  ^     .:^..:::...:..     !^. \n");
+        out(" ^:^    ^77GP5PPJ!^  ........ ...  .:   . ^: :^ ~ \n");
+        out(" ^.^:   :...    ^^         ....... :^:^^~:: .^.:^ \n");
+        out("  ..:::...:^:.  ^. .. .. .^.......^^..^:...:^:..  \n");
+        out("       ....:::::^^^~~^^^:^~ : ^:::^^.......       \n");
+        out("                   .......^:~^~~^^.               \n");
+        out("\n");
+    }
+
 
     //history
 
@@ -5347,23 +5506,25 @@ void process_system_command(char *input) {
 
 
     else if (strcmp(cmd, "chooser") == 0){
-        int chooser = rand() % 2;
-        srand(time(NULL));
         char opt1 [124];
         char opt2 [124];
-        in("Give your first option: ", opt1);
+        out("What is your first option? ");
+        in("", opt1);
 
-        in("Give your second option: ", opt2);
+        out("What is your second option? ");
+        in("", opt2);
 
-        if(chooser == 1){
+        srand(time(NULL));
+        int n = rand() % 2;
+        
+        if (n == 0){
+            out("%s\n", opt1);
+        }
+        else{
             out("%s\n", opt2);
         }
 
-        else if (chooser == 0){
-            out("%s\n", opt1);
-        }
     }
-    
     
 
     
