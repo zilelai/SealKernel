@@ -6,25 +6,19 @@
 4. Hope you like it :)
 5. If you don't know any commands, use help in sealscript
 
-
-<h2>To run SealOS7, you should first download raylib: </h2>
-
-Fedora: sudo dnf install raylib-devel
-Debian: sudo apt install raylib-devel
-Arch: sudo pacman -S raylib
-Windows: use official .zip file for raylib
-MacOS: brew install raylib
-
 <h3>Then follow the next step if you are a linux user.</h3>
 
 
 <h2>To run your program in linux terminal, first:</h2>
 
 -1. check the location where SealKernel tty1/tty2 was located
+<br>
 -2. code paste
+<br>
 -3. g++ tty1.cpp -o tty1 (for tty1) or gcc tty2.cpp -o tty2 -lm (for tty2)
+<br>
 -4. ./tty1 or ./tty2
-
+<br>
 
 RUN WITHOUT SETUP: https://codepad.app/pad/xt67l97o
 
