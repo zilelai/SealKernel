@@ -4,11 +4,11 @@
 2. Any support please contact zlprojects.sealkernel@gmail.com I might contact you within a week
 3. Use the source code however u want just that don't use it improperly
 4. Hope you like it :)
-5. If you don't know any commands, use help in sealscript
-
-<h3>Then follow the next step if you are a linux user.</h3>
+5. If you don't know any commands, use help in sealscript.
 
 
+
+   
 <h2>To run your program in linux terminal, first:</h2>
 
 -1. check the location where SealKernel tty1/tty2 was located
